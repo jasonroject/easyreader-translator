@@ -1,3 +1,4 @@
+import { useStrokeEraser } from './useStrokeEraser';
 import React, { useEffect, useRef, useState } from 'react';
 import { TranslationDocument } from '../types';
 import { loadPdf } from '../services/pdfFiles';
@@ -72,9 +73,10 @@ function AnnotationPage({ doc, page, pdfUrl }: { doc: TranslationDocument; page:
     const next = future.current.pop();
     if (next) { history.current.push(current.current); persist(next); }
   };
+  const eraser = useStrokeEraser(current, change, persist);
   const point = (event: React.PointerEvent<SVGSVGElement>) => annotationPoint(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
   const finish = (event: React.PointerEvent<SVGSVGElement>, cancel = false) => {
-    if (event.pointerId !== pointer.current) return;
+    eraser.finish(event); if (event.pointerId !== pointer.current) return;
     const stroke = drawing.current;
     drawing.current = null; pointer.current = null; setDraft(null);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
@@ -94,7 +96,7 @@ function AnnotationPage({ doc, page, pdfUrl }: { doc: TranslationDocument; page:
       <span role="status" className="text-xs text-muted-foreground">{status}</span>
       {status.startsWith('保存失败') && <button className={button} onClick={() => persist(current.current)}>重试保存</button>}
     </div>
-    <div className="px-3 py-2 text-xs text-muted-foreground">{tool === 'pen' ? '在原文上按住拖动画线；鼠标、触控笔和触摸均可使用。' : tool === 'note' ? '点击原文位置添加备注，在备注区输入内容。' : tool === 'erase' ? '点击要删除的笔迹；删错可以撤销。' : '点击编号可以编辑已有备注；文字文档支持选择文字。'} 批注保存在当前浏览器，不会修改源 PDF。</div>
+    <div className="px-3 py-2 text-xs text-muted-foreground">{tool === 'pen' ? '在原文上按住拖动画线；鼠标、触控笔和触摸均可使用。' : tool === 'note' ? '点击原文位置添加备注，在备注区输入内容。' : tool === 'erase' ? '按住拖过笔迹即可擦除整条线；删错可以撤销。' : '点击编号可以编辑已有备注；文字文档支持选择文字。'} 批注保存在当前浏览器，不会修改源 PDF。</div>
     <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(160px,0.4fr)] lg:grid-cols-[1fr_280px] lg:grid-rows-1">
       <div className="overflow-auto bg-muted p-4" aria-label="原文批注页面">
         {error && <p role="alert" className="mb-3 text-red-500">{error}</p>}
@@ -109,20 +111,20 @@ function AnnotationPage({ doc, page, pdfUrl }: { doc: TranslationDocument; page:
               if (tool === 'note') {
                 const note = { id: crypto.randomUUID(), point: point(event), text: '' };
                 change({ ...current.current, notes: [...current.current.notes, note] }); setActiveNote(note.id); setTool('read');
+              } else if (tool === 'erase') { eraser.start(event);
               } else if (tool === 'pen') {
                 const stroke = { id: crypto.randomUUID(), points: [point(event)], color, width };
                 drawing.current = stroke; pointer.current = event.pointerId; setDraft(stroke); event.currentTarget.setPointerCapture(event.pointerId);
               }
             }}
             onPointerMove={event => {
+              if (tool === 'erase') { eraser.move(event); return; }
               if (event.pointerId !== pointer.current || !drawing.current) return;
               const stroke = { ...drawing.current, points: [...drawing.current.points, point(event)] };
               drawing.current = stroke; setDraft(stroke);
             }}
             onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onLostPointerCapture={event => finish(event, true)}>
-            {[...data.strokes, ...(draft ? [draft] : [])].map(stroke => <path key={stroke.id} d={strokePath(stroke.points)} stroke={stroke.color} strokeWidth={stroke.width} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" fill="none" style={{ pointerEvents: tool === 'erase' ? 'stroke' : 'none' }} onPointerDown={event => {
-              if (tool === 'erase' && usable) { event.preventDefault(); event.stopPropagation(); change({ ...current.current, strokes: current.current.strokes.filter(s => s.id !== stroke.id) }); }
-            }} />)}
+            {[...data.strokes, ...(draft ? [draft] : [])].map(stroke => <path key={stroke.id} d={strokePath(stroke.points)} stroke={stroke.color} strokeWidth={stroke.width} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" fill="none" style={{ pointerEvents: 'none' }} />)}
           </svg>
           {usable && data.notes.map((note, index) => <button key={note.id} aria-label={`编辑备注 ${index + 1}`} title={note.text || '空备注'} onClick={() => setActiveNote(note.id)} className="absolute z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-amber-400 text-xs font-bold text-black shadow" style={{ left: `${note.point.x / 10}%`, top: `${note.point.y / 10}%`, transform: 'translate(-50%, -50%)' }}>{index + 1}</button>)}
         </div>

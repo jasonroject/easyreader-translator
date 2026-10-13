@@ -86,7 +86,7 @@ export function ContinuousPdfPreview({ url }: { url: string }) {
       {([['read', '阅读'], ['note', '添加备注'], ['pen', '画笔'], ['erase', '橡皮擦']] as const).map(([value, label]) => <button key={value} aria-pressed={tool === value} className={`rounded border border-border px-3 py-1 ${tool === value ? 'bg-blue-600 text-white' : 'bg-card'}`} onClick={() => setTool(value)}>{label}</button>)}
       <label>颜色 <input aria-label="版式画笔颜色" type="color" value={color} onChange={event => setColor(event.target.value)} className="h-7 w-8 align-middle" /></label>
       <label>粗细 <select aria-label="版式画笔粗细" className="rounded border border-border bg-card px-2 py-1" value={width} onChange={event => setWidth(Number(event.target.value))}><option value={2}>细</option><option value={3}>中</option><option value={6}>粗</option></select></label>
-      <span className="text-xs text-muted-foreground">点击页面添加备注，拖动画线；每页下方编辑备注和撤销。按任务、视图、页码自动保存到本机，不写入下载的 PDF。</span>
+      <span className="text-xs text-muted-foreground">点击页面添加备注，拖动画线；橡皮擦按住拖过笔迹会擦除整条线，可在每页下方撤销。按任务、视图、页码自动保存到本机，不写入下载的 PDF。</span>
     </div>}
     <div ref={setRoot} role="region" aria-label="连续 PDF 阅读区" tabIndex={0} className="min-h-0 flex-1 overflow-auto bg-muted p-4">
       {!pdf && !error && <p role="status">正在加载 PDF…</p>}

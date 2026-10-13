@@ -1,3 +1,4 @@
+import { useStrokeEraser } from './useStrokeEraser';
 import React, { useEffect, useRef, useState } from 'react';
 import { annotationPoint, emptyAnnotations, loadAnnotations, saveAnnotations, strokePath, PageAnnotations, Stroke } from '../services/annotations';
 
@@ -36,9 +37,10 @@ export function LayoutPageAnnotations({ storageKey, page, ratio, ready, options,
     }).catch(() => { if (alive.current && version === revision.current) setStatus('保存失败，请重试保存。'); });
   };
   const change = (value: PageAnnotations) => { history.current = [...history.current.slice(-49), current.current]; future.current = []; persist(value); };
+  const eraser = useStrokeEraser(current, change, persist);
   const point = (event: React.PointerEvent<SVGSVGElement>) => annotationPoint(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
   const finish = (event: React.PointerEvent<SVGSVGElement>, cancelled = false) => {
-    if (event.pointerId !== pointer.current) return;
+    eraser.finish(event); if (event.pointerId !== pointer.current) return;
     const stroke = drawing.current; drawing.current = null; pointer.current = null; setDraft(null);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (stroke && !cancelled) change({ ...current.current, strokes: [...current.current.strokes, stroke] });
@@ -53,20 +55,20 @@ export function LayoutPageAnnotations({ storageKey, page, ratio, ready, options,
           if (mode === 'note') {
             const note = { id: crypto.randomUUID(), point: point(event), text: '' };
             change({ ...current.current, notes: [...current.current.notes, note] }); setActive(note.id); options.onRead();
+          } else if (mode === 'erase') { eraser.start(event);
           } else if (mode === 'pen') {
             const stroke = { id: crypto.randomUUID(), points: [point(event)], color, width };
             drawing.current = stroke; pointer.current = event.pointerId; setDraft(stroke); event.currentTarget.setPointerCapture(event.pointerId);
           }
         }}
         onPointerMove={event => {
+          if (mode === 'erase') { eraser.move(event); return; }
           if (event.pointerId !== pointer.current || !drawing.current) return;
           const stroke = { ...drawing.current, points: [...drawing.current.points, point(event)] };
           drawing.current = stroke; setDraft(stroke);
         }}
         onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onLostPointerCapture={event => finish(event, true)}>
-        {[...data.strokes, ...(draft ? [draft] : [])].map(stroke => <path key={stroke.id} d={strokePath(stroke.points)} stroke={stroke.color} strokeWidth={stroke.width} fill="none" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: usable && mode === 'erase' ? 'stroke' : 'none' }} onPointerDown={event => {
-          if (mode === 'erase' && usable) { event.preventDefault(); event.stopPropagation(); change({ ...current.current, strokes: current.current.strokes.filter(item => item.id !== stroke.id) }); }
-        }} />)}
+        {[...data.strokes, ...(draft ? [draft] : [])].map(stroke => <path key={stroke.id} d={strokePath(stroke.points)} stroke={stroke.color} strokeWidth={stroke.width} fill="none" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />)}
       </svg>
       {data.notes.map((note, index) => <button key={note.id} aria-label={`第 ${page} 页备注 ${index + 1}`} title={note.text || '点击编辑备注'} onClick={() => { setActive(note.id); options.onEdit(); if (editing) fields.current.get(note.id)?.focus(); }} className="absolute z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-amber-400 text-xs font-bold text-black shadow" style={{ left: `${note.point.x / 10}%`, top: `${note.point.y / 10}%`, transform: 'translate(-50%, -50%)' }}>{index + 1}</button>)}
     </div>
