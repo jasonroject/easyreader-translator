@@ -1,8 +1,9 @@
+import { InlineTextMarker } from './InlineTextMarker';
 import { useStrokeEraser } from './useStrokeEraser';
 import React, { useEffect, useRef, useState } from 'react';
 import { annotationPoint, emptyAnnotations, loadAnnotations, saveAnnotations, strokePath, PageAnnotations, Stroke } from '../services/annotations';
 
-export type AnnotationTool = 'read' | 'note' | 'pen' | 'erase';
+export type AnnotationTool = 'read' | 'note' | 'text' | 'pen' | 'erase';
 export type LayoutAnnotationOptions = { editing: boolean; tool: AnnotationTool; color: string; width: number; onRead: () => void; onEdit: () => void };
 const button = 'rounded border border-border bg-card px-2 py-1 text-xs text-foreground hover:bg-accent disabled:opacity-40';
 
@@ -46,14 +47,14 @@ export function LayoutPageAnnotations({ storageKey, page, ratio, ready, options,
     if (stroke && !cancelled) change({ ...current.current, strokes: [...current.current.strokes, stroke] });
   };
   return <>
-    <div style={{ aspectRatio: ratio }} className="relative bg-white shadow-lg">
+    <div style={{ aspectRatio: ratio, containerType: 'inline-size' }} className="relative bg-white shadow-lg">
       {children}
       <svg aria-label={`第 ${page} 页批注画布`} viewBox="0 0 1000 1000" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" style={{ pointerEvents: usable && mode !== 'read' ? 'auto' : 'none', touchAction: mode === 'read' ? 'auto' : 'none', cursor: mode === 'pen' ? 'crosshair' : mode === 'note' ? 'copy' : 'default' }}
         onPointerDown={event => {
           if (!usable || event.button !== 0 || pointer.current !== null || mode === 'read') return;
           event.preventDefault(); event.stopPropagation();
-          if (mode === 'note') {
-            const note = { id: crypto.randomUUID(), point: point(event), text: '' };
+          if (mode === 'note' || mode === 'text') {
+            const note = { id: crypto.randomUUID(), point: point(event), text: '', kind: mode === 'text' ? 'text' as const : 'note' as const, color, fontSize: 18 };
             change({ ...current.current, notes: [...current.current.notes, note] }); setActive(note.id); options.onRead();
           } else if (mode === 'erase') { eraser.start(event);
           } else if (mode === 'pen') {
@@ -70,7 +71,7 @@ export function LayoutPageAnnotations({ storageKey, page, ratio, ready, options,
         onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onLostPointerCapture={event => finish(event, true)}>
         {[...data.strokes, ...(draft ? [draft] : [])].map(stroke => <path key={stroke.id} d={strokePath(stroke.points)} stroke={stroke.color} strokeWidth={stroke.width} fill="none" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />)}
       </svg>
-      {data.notes.map((note, index) => <button key={note.id} aria-label={`第 ${page} 页备注 ${index + 1}`} title={note.text || '点击编辑备注'} onClick={() => { setActive(note.id); options.onEdit(); if (editing) fields.current.get(note.id)?.focus(); }} className="absolute z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-amber-400 text-xs font-bold text-black shadow" style={{ left: `${note.point.x / 10}%`, top: `${note.point.y / 10}%`, transform: 'translate(-50%, -50%)' }}>{index + 1}</button>)}
+      {data.notes.map((note, index) => note.kind === 'text' ? <InlineTextMarker key={note.id} note={note} label={`第 ${page} 页插入文字 ${index + 1}`} onClick={() => { setActive(note.id); options.onEdit(); if (editing) fields.current.get(note.id)?.focus(); }} /> : <button key={note.id} aria-label={`第 ${page} 页备注 ${index + 1}`} title={note.text || '点击编辑备注'} onClick={() => { setActive(note.id); options.onEdit(); if (editing) fields.current.get(note.id)?.focus(); }} className="absolute z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-amber-400 text-xs font-bold text-black shadow" style={{ left: `${note.point.x / 10}%`, top: `${note.point.y / 10}%`, transform: 'translate(-50%, -50%)' }}>{index + 1}</button>)}
     </div>
     {editing && <aside aria-label={`第 ${page} 页备注区`} className="mt-2 rounded border border-border bg-card p-3">
       <div className="flex flex-wrap items-center gap-2">

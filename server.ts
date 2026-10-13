@@ -1,3 +1,5 @@
+import { validateTranslations, numericWarnings } from './translationValidation';
+import { protectEngineeringTerms, engineeringInstruction } from './src/services/engineeringDomains';
 import './config';
 import { layoutRoutes } from './layoutRoutes';
 import './network';
@@ -166,6 +168,7 @@ app.post('/api/translate', async (req: Request, res: Response) => {
       extractGlossary = true,
       customContext = '',
       customAiConfig,
+      engineeringDomain = 'general', engineeringGlossary = '',
     } = req.body;
 
     if (!segments || !Array.isArray(segments) || segments.length === 0) {
@@ -175,8 +178,11 @@ app.post('/api/translate', async (req: Request, res: Response) => {
     if (segments.length > 100 || segments.some((s: any) => typeof s?.id !== 'string' || typeof s?.text !== 'string' || s.text.length > 100000)) {
       return res.status(400).json({ error: '段落格式错误或单次请求过大' });
     }
+    if (typeof engineeringDomain !== 'string' || typeof engineeringGlossary !== 'string' || engineeringGlossary.length > 2000) return res.status(400).json({ error: '工程术语配置格式错误' });
+    const engineering = protectEngineeringTerms(segments, sourceLang, targetLang, engineeringDomain, engineeringGlossary);
+    const domainInstruction = engineeringInstruction(engineeringDomain, engineeringGlossary);
     if (engineStyle === 'google') {
-      try { return res.json(await translateGoogle(segments, sourceLang, targetLang)); }
+      try { const result = await translateGoogle(engineering.segments, sourceLang, targetLang); result.translations = result.translations.map(item => ({ ...item, translated: engineering.restore(item.id, item.translated) })); return res.json({ ...result, qualityWarnings: engineeringDomain === 'general' ? [] : numericWarnings(segments, result.translations) }); }
       catch (error: any) { return res.status(502).json({ error: error.name === 'TimeoutError' || error.message === 'fetch failed' ? '无法连接 Google 翻译，请检查本机访问 Google 的网络或代理设置。' : error.message }); }
     }
     // Branch 1: Bing 微软官方免费翻译引擎
@@ -186,7 +192,7 @@ app.post('/api/translate', async (req: Request, res: Response) => {
         const toParam = mapToBingLang(targetLang) || 'zh-Hans';
         const url = `https://edge.microsoft.com/translate/translatetext?from=${encodeURIComponent(fromParam)}&to=${encodeURIComponent(toParam)}&isEnterpriseClient=false`;
 
-        const textArray = segments.map((s) => s.text);
+        const textArray = engineering.segments.map((s) => s.text);
         const bingRes = await fetch(url, {
           signal: AbortSignal.timeout(20000),
           method: 'POST',
@@ -207,7 +213,7 @@ app.post('/api/translate', async (req: Request, res: Response) => {
         const detectedLang = bingData[0]?.detectedLanguage?.language || (sourceLang === 'auto' ? 'en' : sourceLang);
         const translations = segments.map((s, idx) => ({
           id: s.id,
-          translated: bingData[idx]?.translations?.[0]?.text || s.text,
+          translated: engineering.restore(s.id, bingData[idx]?.translations?.[0]?.text || s.text),
         }));
 
         return res.json({
@@ -216,11 +222,12 @@ app.post('/api/translate', async (req: Request, res: Response) => {
           translations,
           glossary: [],
           provider: 'bing',
+          qualityWarnings: engineeringDomain === 'general' ? [] : numericWarnings(segments, translations),
         });
       } catch (bingError: any) {
         console.error('Bing translation error:', bingError);
         return res.status(500).json({
-          error: 'Bing 免费翻译调用失败',
+          error: bingError.message?.includes('术语标记') ? bingError.message : 'Bing 免费翻译调用失败',
           details: bingError.message || String(bingError),
         });
       }
@@ -288,7 +295,7 @@ Return strict JSON only (no markdown code blocks, raw JSON):
           body: JSON.stringify({
             model,
             messages: [
-              { role: 'system', content: systemPrompt },
+              { role: 'system', content: systemPrompt + domainInstruction },
               { role: 'user', content: userPrompt },
             ],
             temperature,
@@ -309,15 +316,9 @@ Return strict JSON only (no markdown code blocks, raw JSON):
           const cleaned = content.replace(/```json/gi, '').replace(/```/g, '').trim();
           parsedData = JSON.parse(cleaned);
         } catch {
-          // Fallback parsing if JSON wasn't strict
-          parsedData = {
-            translations: segments.map((s) => ({
-              id: s.id,
-              translated: content.slice(0, 500) || s.text,
-            })),
-            glossary: [],
-          };
+          throw new Error('AI 返回的内容不是有效 JSON，请重试或检查模型。');
         }
+        validateTranslations(segments, parsedData.translations);
 
         return res.json({
           success: true,
@@ -325,6 +326,7 @@ Return strict JSON only (no markdown code blocks, raw JSON):
           translations: parsedData.translations || [],
           glossary: parsedData.glossary || [],
           provider: 'custom-ai',
+          qualityWarnings: engineeringDomain === 'general' ? [] : numericWarnings(segments, parsedData.translations),
           modelUsed: model,
         });
       } catch (customErr: any) {
@@ -384,7 +386,7 @@ Do not output markdown code blocks (e.g. \`\`\`json). Output raw JSON only.
       model: geminiModel,
       contents: promptText,
       config: {
-        systemInstruction: styleInstruction,
+        systemInstruction: styleInstruction + domainInstruction,
         responseMimeType: 'application/json',
       },
     });
@@ -399,9 +401,11 @@ Do not output markdown code blocks (e.g. \`\`\`json). Output raw JSON only.
       parsedData = JSON.parse(cleaned);
     }
 
+    validateTranslations(segments, parsedData.translations);
     res.json({
       success: true,
       detectedSourceLang: parsedData.detectedSourceLang || 'en',
+      qualityWarnings: engineeringDomain === 'general' ? [] : numericWarnings(segments, parsedData.translations),
       translations: parsedData.translations || [],
       glossary: parsedData.glossary || [],
     });

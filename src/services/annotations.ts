@@ -1,6 +1,6 @@
 export type Point = { x: number; y: number };
 export type Stroke = { id: string; color: string; width: number; points: Point[] };
-export type PageNote = { id: string; point: Point; text: string };
+export type PageNote = { id: string; point: Point; text: string; kind?: 'note' | 'text'; color?: string; fontSize?: number };
 export type PageAnnotations = { strokes: Stroke[]; notes: PageNote[] };
 export const emptyAnnotations = (): PageAnnotations => ({ strokes: [], notes: [] });
 

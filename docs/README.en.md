@@ -29,3 +29,11 @@ On another computer, download the source and install dependencies again. Do not 
 Run `npm run lint`, `npm test`, and `npm run build` for development checks. After layout setup, run `tests/test_pdf_preflight.py` using the virtual environment's Python.
 
 Licensed under AGPL-3.0-only with preserved third-party notices. See [Chinese documentation](../README.md) and [third-party notices](../THIRD_PARTY_NOTICES.md).
+
+## Engineering modes and inline text
+
+Paste and layout translation now offer mechanical, electrical, civil and materials/chemical domains, plus an editable glossary (`English term=Chinese term`, up to 40 lines). Bing/Google terminology protection applies to English-to-Simplified-Chinese. Gemini adds engineering logic constraints and requires a configured key/model; real model quality has not been evaluated locally. Numerical differences are flagged for review, not treated as proof of mistranslation.
+
+Layout speed presets control concurrency and request rate. OCR offers fast/balanced/detailed profiles and reuses content-matched results in `.ocr-cache/`. This cache contains document text; stop the app before deleting it. See [controlled performance measurements](optimization-notes.md), which are not network performance guarantees.
+
+Choose Insert text in the source PDF editor or layout preview, click a page, then edit the text below it. Export annotated PDF creates a new PDF containing these text additions (30 MB input limit), without changing the source. Pinned notes and pen strokes remain local as described above. Export inputs, annotation text and copies are retained in `.layout-jobs/`. Restart the launcher after updating backend code.

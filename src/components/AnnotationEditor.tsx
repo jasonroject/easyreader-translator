@@ -1,3 +1,5 @@
+import { InlineTextMarker } from './InlineTextMarker';
+import { exportAnnotatedPdf } from '../services/exportAnnotatedPdf';
 import { useStrokeEraser } from './useStrokeEraser';
 import React, { useEffect, useRef, useState } from 'react';
 import { TranslationDocument } from '../types';
@@ -12,7 +14,7 @@ function AnnotationPage({ doc, page, pdfUrl }: { doc: TranslationDocument; page:
   const current = useRef(data);
   const [loaded, setLoaded] = useState(false), [pageReady, setPageReady] = useState(doc.fileType !== 'pdf');
   const [status, setStatus] = useState('正在读取批注…'), [error, setError] = useState('');
-  const [tool, setTool] = useState<'read' | 'pen' | 'note' | 'erase'>('read');
+  const [tool, setTool] = useState<'read' | 'pen' | 'note' | 'text' | 'erase'>('read');
   const [color, setColor] = useState('#ef4444'), [width, setWidth] = useState(3);
   const [activeNote, setActiveNote] = useState('');
   const noteFields = useRef(new Map<string, HTMLTextAreaElement>());
@@ -86,7 +88,7 @@ function AnnotationPage({ doc, page, pdfUrl }: { doc: TranslationDocument; page:
   const isPdf = doc.fileType === 'pdf';
   return <div className="flex min-h-0 flex-1 flex-col">
     <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-      {([['read', '阅读'], ['note', '添加备注'], ['pen', '画笔'], ['erase', '橡皮擦']] as const).map(([value, label]) =>
+      {([['read', '阅读'], ['note', '添加备注'], ['text', '插入文字'], ['pen', '画笔'], ['erase', '橡皮擦']] as const).map(([value, label]) =>
         <button key={value} disabled={!usable} aria-pressed={tool === value} className={`${button} ${tool === value ? 'ring-2 ring-blue-500' : ''}`} onClick={() => setTool(value)}>{label}</button>)}
       <label className="flex items-center gap-1 text-xs">颜色 <input aria-label="画笔颜色" type="color" value={color} onChange={e => setColor(e.target.value)} className="h-8 w-9" /></label>
       <label className="text-xs">粗细 <select aria-label="画笔粗细" className={button} value={width} onChange={e => setWidth(Number(e.target.value))}><option value={2}>细</option><option value={3}>中</option><option value={6}>粗</option></select></label>
@@ -96,20 +98,20 @@ function AnnotationPage({ doc, page, pdfUrl }: { doc: TranslationDocument; page:
       <span role="status" className="text-xs text-muted-foreground">{status}</span>
       {status.startsWith('保存失败') && <button className={button} onClick={() => persist(current.current)}>重试保存</button>}
     </div>
-    <div className="px-3 py-2 text-xs text-muted-foreground">{tool === 'pen' ? '在原文上按住拖动画线；鼠标、触控笔和触摸均可使用。' : tool === 'note' ? '点击原文位置添加备注，在备注区输入内容。' : tool === 'erase' ? '按住拖过笔迹即可擦除整条线；删错可以撤销。' : '点击编号可以编辑已有备注；文字文档支持选择文字。'} 批注保存在当前浏览器，不会修改源 PDF。</div>
+    <div className="px-3 py-2 text-xs text-muted-foreground">{tool === 'pen' ? '在原文上按住拖动画线；鼠标、触控笔和触摸均可使用。' : tool === 'note' || tool === 'text' ? '点击原文位置添加备注或文字，在备注区输入内容。' : tool === 'erase' ? '按住拖过笔迹即可擦除整条线；删错可以撤销。' : '点击编号可以编辑已有备注；文字文档支持选择文字。'} 批注保存在当前浏览器，不会修改源 PDF。</div>
     <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(160px,0.4fr)] lg:grid-cols-[1fr_280px] lg:grid-rows-1">
       <div className="overflow-auto bg-muted p-4" aria-label="原文批注页面">
         {error && <p role="alert" className="mb-3 text-red-500">{error}</p>}
         {isPdf && !pageReady && !error && <p className="mb-2 text-sm">正在加载原始 PDF…</p>}
-        <div className="relative mx-auto bg-white text-black shadow-md" style={{ width: 900, minHeight: isPdf ? undefined : 300 }}>
+        <div className="relative mx-auto bg-white text-black shadow-md" style={{ width: 900, containerType: 'inline-size', minHeight: isPdf ? undefined : 300 }}>
           {isPdf ? <canvas ref={canvas} style={{ display: 'block', width: 900, height: pageHeight }} aria-label={`原文第 ${page} 页`} /> :
             <div className="p-12 text-base leading-8" style={{ fontFamily: 'Arial, sans-serif' }}>{doc.segments.filter(s => (s.pageNumber || 1) === page).map(s => <p key={s.id} className="mb-5 whitespace-pre-wrap" style={{ fontWeight: s.type === 'title' || s.type === 'heading' ? 700 : 400 }}>{s.original}</p>)}</div>}
           <svg aria-label="画笔标注层" viewBox="0 0 1000 1000" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" style={{ pointerEvents: usable && tool !== 'read' ? 'auto' : 'none', touchAction: tool === 'read' ? 'auto' : 'none', cursor: tool === 'pen' ? 'crosshair' : tool === 'note' ? 'copy' : 'default' }}
             onPointerDown={event => {
               if (!usable || event.button !== 0 || pointer.current !== null) return;
               if (tool !== 'read') { event.preventDefault(); event.stopPropagation(); }
-              if (tool === 'note') {
-                const note = { id: crypto.randomUUID(), point: point(event), text: '' };
+              if (tool === 'note' || tool === 'text') {
+                const note = { id: crypto.randomUUID(), point: point(event), text: '', kind: tool === 'text' ? 'text' as const : 'note' as const, color, fontSize: 18 };
                 change({ ...current.current, notes: [...current.current.notes, note] }); setActiveNote(note.id); setTool('read');
               } else if (tool === 'erase') { eraser.start(event);
               } else if (tool === 'pen') {
@@ -126,12 +128,12 @@ function AnnotationPage({ doc, page, pdfUrl }: { doc: TranslationDocument; page:
             onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onLostPointerCapture={event => finish(event, true)}>
             {[...data.strokes, ...(draft ? [draft] : [])].map(stroke => <path key={stroke.id} d={strokePath(stroke.points)} stroke={stroke.color} strokeWidth={stroke.width} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" fill="none" style={{ pointerEvents: 'none' }} />)}
           </svg>
-          {usable && data.notes.map((note, index) => <button key={note.id} aria-label={`编辑备注 ${index + 1}`} title={note.text || '空备注'} onClick={() => setActiveNote(note.id)} className="absolute z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-amber-400 text-xs font-bold text-black shadow" style={{ left: `${note.point.x / 10}%`, top: `${note.point.y / 10}%`, transform: 'translate(-50%, -50%)' }}>{index + 1}</button>)}
+          {usable && data.notes.map((note, index) => note.kind === 'text' ? <InlineTextMarker key={note.id} note={note} label={`插入文字 ${index + 1}`} onClick={() => { setActiveNote(note.id); noteFields.current.get(note.id)?.focus(); }} /> : <button key={note.id} aria-label={`编辑备注 ${index + 1}`} title={note.text || '空备注'} onClick={() => setActiveNote(note.id)} className="absolute z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-amber-400 text-xs font-bold text-black shadow" style={{ left: `${note.point.x / 10}%`, top: `${note.point.y / 10}%`, transform: 'translate(-50%, -50%)' }}>{index + 1}</button>)}
         </div>
       </div>
       <aside className="overflow-auto border-l border-border bg-card p-3" aria-label="本页备注">
         <h3 className="mb-3 font-semibold">本页备注 · {data.notes.length}</h3>
-        {!data.notes.length && <p className="text-sm text-muted-foreground">选择「添加备注」，再点击左侧原文中的位置。</p>}
+        {!data.notes.length && <p className="text-sm text-muted-foreground">选择「添加备注」或「插入文字」，再点击左侧页面的位置。</p>}
         {data.notes.map((note, index) => <div key={note.id} className={`mb-3 rounded-lg border p-2 ${activeNote === note.id ? 'border-blue-500' : 'border-border'}`}>
           <div className="mb-2 flex items-center justify-between text-sm"><button onClick={() => setActiveNote(note.id)}>备注 {index + 1}</button><button className="text-red-500" onClick={() => change({ ...current.current, notes: current.current.notes.filter(n => n.id !== note.id) })}>删除</button></div>
           <textarea ref={element => { if (element) noteFields.current.set(note.id, element); else noteFields.current.delete(note.id); }} aria-label={`备注 ${index + 1} 内容`} placeholder="输入你的备注…" className="min-h-24 w-full rounded border border-border bg-background p-2 text-sm text-foreground" value={note.text} maxLength={10000} onFocus={() => setActiveNote(note.id)} onChange={e => change({ ...current.current, notes: current.current.notes.map(n => n.id === note.id ? { ...n, text: e.target.value } : n) })} />
@@ -145,6 +147,7 @@ export function AnnotationEditor({ doc, onClose }: { doc: TranslationDocument; o
   const dialog = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1), [pdfUrl, setPdfUrl] = useState(doc.pdfBlobUrl || '');
   const [error, setError] = useState('');
+  const [exportStatus, setExportStatus] = useState('');
   const total = Math.max(1, doc.pageCount, ...doc.segments.map(s => s.pageNumber || 1));
   useEffect(() => {
     const previous = window.document.activeElement as HTMLElement | null;
@@ -174,6 +177,8 @@ export function AnnotationEditor({ doc, onClose }: { doc: TranslationDocument; o
     <header className="flex flex-wrap items-center gap-3 border-b border-border p-3">
       <h2 className="mr-auto truncate font-semibold">原文批注 · {doc.fileName}</h2>
       <button className={button} disabled={page <= 1} onClick={() => setPage(page - 1)}>上一页</button><span className="text-sm">第 {page} / {total} 页</span><button className={button} disabled={page >= total} onClick={() => setPage(page + 1)}>下一页</button>
+            {doc.fileType === 'pdf' && <button className={button} disabled={!pdfUrl || exportStatus === '导出中…'} onClick={async () => { setExportStatus('导出中…'); try { await exportAnnotatedPdf(pdfUrl, total, page => `${doc.id}:pdf:${page}`); setExportStatus('已导出插字 PDF'); } catch (e: any) { setExportStatus(e.message); } }}>导出插字 PDF</button>}
+      {exportStatus && <span role="status" className="text-xs">{exportStatus}</span>}
       <button className={button} onClick={onClose}>返回阅读</button>
     </header>
     {error ? <p role="alert" className="p-6 text-red-500">{error}</p> : <AnnotationPage key={`${doc.id}:${page}`} doc={doc} page={page} pdfUrl={pdfUrl} />}

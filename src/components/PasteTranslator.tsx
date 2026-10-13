@@ -1,3 +1,4 @@
+import { EngineeringOptions } from './EngineeringOptions';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeftRight, ClipboardPaste, Copy, X, Languages } from 'lucide-react';
@@ -14,7 +15,8 @@ const button = 'inline-flex items-center justify-center gap-2 rounded-xl border 
 export function PasteTranslator({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [text, setText] = useState(''), [result, setResult] = useState('');
   const [source, setSource] = useState<SupportedLanguage>('auto'), [target, setTarget] = useState<SupportedLanguage>('zh-CN');
-  const [engine, setEngine] = useState<'bing' | 'google'>('bing');
+  const [engine, setEngine] = useState<'bing' | 'google' | 'gemini-flash'>('bing');
+  const [domain, setDomain] = useState('general'), [glossary, setGlossary] = useState('');
   const [detected, setDetected] = useState(''), [busy, setBusy] = useState(false);
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
   const input = useRef<HTMLTextAreaElement>(null), output = useRef<HTMLTextAreaElement>(null), dialog = useRef<HTMLDivElement>(null);
@@ -36,9 +38,9 @@ export function PasteTranslator({ open, onClose }: { open: boolean; onClose: () 
     setBusy(true); setResult(''); setError(''); setNotice('');
     const timeout = setTimeout(() => controller.abort(), 90000);
     try {
-      const translated = await translatePlainText(text, source, target, engine, controller.signal);
+      const translated = await translatePlainText(text, source, target, engine, controller.signal, undefined, { engineeringDomain: domain, engineeringGlossary: glossary });
       if (attempt !== version.current) return;
-      setResult(translated.text); setDetected(translated.detectedLanguage || '');
+      setResult(translated.text); if (translated.warning) setNotice(translated.warning); setDetected(translated.detectedLanguage || '');
     } catch (e: any) {
       if (attempt === version.current) setError(e.name === 'AbortError' ? '翻译超时，请重试或更换引擎。' : e.message || '翻译失败，请重试。');
     } finally {
@@ -49,7 +51,7 @@ export function PasteTranslator({ open, onClose }: { open: boolean; onClose: () 
   const reverseSource = source === 'auto' ? languages.find(language => language.code === detected && language.code !== 'auto')?.code : source;
   if (!open) return null;
   return createPortal(<div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/45 p-3 sm:p-6">
-    <div ref={dialog} role="dialog" aria-modal="true" aria-label="粘贴翻译器" className="flex max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-border bg-background text-foreground shadow-2xl" onKeyDown={event => {
+    <div ref={dialog} role="dialog" aria-modal="true" aria-label="粘贴翻译器" className="layer-enter flex max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-border bg-background text-foreground shadow-2xl" onKeyDown={event => {
       if (event.key === 'Escape') { event.stopPropagation(); cancel(); onClose(); }
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); void translate(); }
       if (event.key === 'Tab') {
@@ -61,9 +63,10 @@ export function PasteTranslator({ open, onClose }: { open: boolean; onClose: () 
     }}>
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
         <Languages className="h-5 w-5 text-blue-500" /><h2 className="mr-auto text-lg font-semibold">粘贴翻译</h2>
-        <label className="flex items-center gap-2 text-sm">引擎 <select aria-label="粘贴翻译引擎" className={button} value={engine} onChange={e => { invalidate(); setEngine(e.target.value as typeof engine); }}><option value="bing">Bing（默认）</option><option value="google">Google</option></select></label>
+        <label className="flex items-center gap-2 text-sm">引擎 <select aria-label="粘贴翻译引擎" className={button} value={engine} onChange={e => { invalidate(); setEngine(e.target.value as typeof engine); }}><option value="bing">Bing（默认）</option><option value="google">Google</option><option value="gemini-flash">Gemini（需配置）</option></select></label>
         <button className={button} aria-label="关闭粘贴翻译" onClick={() => { cancel(); onClose(); }}><X className="h-4 w-4" /></button>
       </header>
+      <div className="border-b border-border px-5 py-2"><EngineeringOptions domain={domain} onDomain={value => { invalidate(); setDomain(value); }} glossary={glossary} onGlossary={value => { invalidate(); setGlossary(value); }} /></div>
       <div className="overflow-auto p-3 sm:p-5">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 pb-3">
           <select aria-label="原文语言" className={`${button} min-w-0 w-full`} value={source} onChange={e => { invalidate(); setSource(e.target.value as SupportedLanguage); }}>{languages.map(language => <option key={language.code} value={language.code}>{language.name}</option>)}</select>

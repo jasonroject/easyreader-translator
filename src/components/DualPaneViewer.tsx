@@ -77,6 +77,12 @@ export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
   isSearchOpen,
   onToggleSearch,
 }) => {
+  const transitionRoot = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const animation = transitionRoot.current?.animate([{ opacity: .65, translate: '0 5px' }, { opacity: 1, translate: '0 0' }], { duration: 200, easing: 'ease-out' });
+    return () => animation?.cancel();
+  }, [viewerMode, presentationStyle]);
   const leftPaneRef = useRef<HTMLDivElement>(null);
   const rightPaneRef = useRef<HTMLDivElement>(null);
   const interlinearRef = useRef<HTMLDivElement>(null);
@@ -497,6 +503,7 @@ export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
 
   return (
     <div
+      ref={transitionRoot}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

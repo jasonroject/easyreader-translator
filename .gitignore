@@ -2,6 +2,7 @@ node_modules/
 dist/
 .babeldoc-venv/
 .layout-jobs/
+.ocr-cache/
 .env
 .env.*
 !.env.example

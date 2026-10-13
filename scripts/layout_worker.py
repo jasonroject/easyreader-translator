@@ -4,6 +4,8 @@ import json
 import os
 import shutil
 import sys
+import re
+from decimal import Decimal
 from pathlib import Path
 
 def emit(**data):
@@ -13,7 +15,7 @@ async def main():
     job_dir = Path(sys.argv[1]).resolve()
     config = json.loads((job_dir / 'config.json').read_text(encoding='utf-8'))
     from pdf_preflight import prepare_pdf, has_ocr_layer
-    input_pdf = prepare_pdf(job_dir / 'source.pdf', job_dir / 'ocr.pdf', emit)
+    input_pdf = prepare_pdf(job_dir / 'source.pdf', job_dir / 'ocr.pdf', emit, config.get('ocr', 'balanced'), job_dir.parent.parent / '.ocr-cache')
     scanned = input_pdf.name == 'ocr.pdf' or has_ocr_layer(input_pdf)
     emit(stage='正在加载版面识别模型与字体（首次使用可能需要下载）', progress=0)
     from babeldoc.translator.translator import BaseTranslator, set_translate_rate_limiter
@@ -29,10 +31,24 @@ async def main():
         def __init__(self):
             super().__init__(config['source'], config['target'], False)
             self.add_cache_impact_parameters('engine', self.model)
+            self.add_cache_impact_parameters('domain', config.get('domain', 'general'))
+            self.add_cache_impact_parameters('glossary', config.get('glossary', ''))
+            self.add_cache_impact_parameters('model', config.get('model', ''))
+            self.client = httpx.Client(trust_env=False, timeout=60)
             self.errors = []
 
         def do_llm_translate(self, text, rate_limit_params=None):
             raise NotImplementedError
+
+        def translate(self, text, ignore_cache=False, rate_limit_params=None):
+            result = super().translate(text, ignore_cache, rate_limit_params)
+            if config.get('domain', 'general') != 'general':
+                def numbers(value):
+                    value = re.sub(r'(?<=\d),(?=\d{3}(?:\D|$))', '', value.replace('−', '-'))
+                    return sorted(Decimal(number) for number in re.findall(r'[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?', value))
+                if numbers(text) != numbers(result):
+                    emit(warning='检测到数值或编号差异，完成后请人工核对译文中的公式、单位与引用。')
+            return result
 
         def do_translate(self, text, rate_limit_params=None):
             # BabelDOC catches paragraph exceptions and otherwise continues the
@@ -41,19 +57,21 @@ async def main():
                 raise RuntimeError(self.errors[0])
             try:
                 # Loopback must not go through the user's external proxy.
-                with httpx.Client(trust_env=False, timeout=60) as client:
-                    response = client.post(config['api_url'], json={
-                        'segments': [{'id': 'paragraph', 'text': text}],
-                        'sourceLang': config['source'], 'targetLang': config['target'],
-                        'engineStyle': self.model, 'extractGlossary': False,
-                    })
-                    data = response.json()
-                    if not response.is_success or not data.get('success'):
-                        raise RuntimeError(data.get('error', '翻译接口请求失败'))
-                    translated = data['translations'][0]['translated']
-                    if not isinstance(translated, str) or not translated.strip():
-                        raise RuntimeError('翻译接口没有返回有效译文')
-                    return translated
+                client = self.client
+                response = client.post(config['api_url'], json={
+                    'segments': [{'id': 'paragraph', 'text': text}],
+                    'sourceLang': config['source'], 'targetLang': config['target'],
+                    'engineStyle': self.model, 'extractGlossary': False,
+                    'engineeringDomain': config.get('domain', 'general'),
+                    'engineeringGlossary': config.get('glossary', ''),
+                })
+                data = response.json()
+                if not response.is_success or not data.get('success'):
+                    raise RuntimeError(data.get('error', '翻译接口请求失败'))
+                translated = data['translations'][0]['translated']
+                if not isinstance(translated, str) or not translated.strip():
+                    raise RuntimeError('翻译接口没有返回有效译文')
+                return translated
             except Exception as exc:
                 message = f"{self.model.title()} 翻译中断：{exc}。请检查网络，或切换翻译引擎后重新生成；已成功翻译的段落缓存会复用。"
                 self.errors.append(message)
@@ -63,13 +81,14 @@ async def main():
                 raise
 
     translator = WebTranslator()
-    set_translate_rate_limiter(1)
+    qps, workers = {'stable': (1, 1), 'balanced': (1, 3), 'fast': (2, 3)}.get(config.get('speed', 'stable'), (1, 1))
+    set_translate_rate_limiter(qps)
     layout = DocLayoutModel.load_onnx()
     options = TranslationConfig(
         translator=translator, input_file=input_pdf,
         lang_in=config['source'], lang_out=config['target'], doc_layout_model=layout,
         output_dir=job_dir / 'output', working_dir=job_dir / 'work',
-        qps=1, pool_max_workers=1, use_rich_pbar=False,
+        qps=qps, pool_max_workers=workers, use_rich_pbar=False,
         auto_extract_glossary=False, save_auto_extracted_glossary=False,
         disable_rich_text_translate=True, watermark_output_mode=WatermarkOutputMode.NoWatermark,
         use_alternating_pages_dual=False,
@@ -97,6 +116,7 @@ async def main():
             emit(stage=event.get('stage', '正在处理'), progress=event.get('overall_progress', 0), current=event.get('stage_current'), total=event.get('stage_total'))
     if not completed:
         raise RuntimeError('版式任务结束，但没有生成文件')
+    translator.client.close()
 
 if __name__ == '__main__':
     try:
