@@ -7,6 +7,14 @@ import { fileURLToPath } from 'node:url';
 import { pythonPath } from './runtime.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(root);
+if (existsSync('.env.local')) process.loadEnvFile('.env.local');
+if (existsSync('.env')) process.loadEnvFile('.env');
+if (!process.env.HTTPS_PROXY && !process.env.HTTP_PROXY && process.platform === 'win32') {
+  const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', "$p = Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings'; if ($p.ProxyEnable -eq 1) { $p.ProxyServer }"], { encoding: 'utf8', windowsHide: true });
+  const value = result.stdout?.trim();
+  const proxy = value?.includes('=') ? value.split(';').find(p => p.startsWith('https='))?.slice(6) || value.split(';').find(p => p.startsWith('http='))?.slice(5) : value;
+  if (proxy) process.env.HTTPS_PROXY = process.env.HTTP_PROXY = proxy.includes('://') ? proxy : `http://${proxy}`;
+}
 const python = pythonPath(root);
 const candidate = path.join(os.homedir(), '.local', 'bin', process.platform === 'win32' ? 'uv.exe' : 'uv');
 const uv = existsSync(candidate) ? candidate : 'uv';

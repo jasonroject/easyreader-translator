@@ -10,6 +10,7 @@ dist/
 .server*
 .scan-test-job
 .original-scan-job
+.ocr-layer-test-job
 .verify-scan.py
 *.log
 __pycache__/
