@@ -6,7 +6,7 @@ import { TranslationDocument } from '../types';
 import { loadPdf } from '../services/pdfFiles';
 import { annotationPoint, emptyAnnotations, loadAnnotations, saveAnnotations, strokePath, PageAnnotations, Stroke } from '../services/annotations';
 
-const button = 'rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-accent disabled:opacity-40';
+const button = 'studio-button';
 
 function AnnotationPage({ doc, page, pdfUrl }: { doc: TranslationDocument; page: number; pdfUrl?: string }) {
   const key = `${doc.id}:${doc.fileType === 'pdf' ? 'pdf' : 'text'}:${page}`;
@@ -87,9 +87,9 @@ function AnnotationPage({ doc, page, pdfUrl }: { doc: TranslationDocument; page:
   const usable = loaded && pageReady;
   const isPdf = doc.fileType === 'pdf';
   return <div className="flex min-h-0 flex-1 flex-col">
-    <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+    <div className="studio-annotation-toolbar">
       {([['read', '阅读'], ['note', '添加备注'], ['text', '插入文字'], ['pen', '画笔'], ['erase', '橡皮擦']] as const).map(([value, label]) =>
-        <button key={value} disabled={!usable} aria-pressed={tool === value} className={`${button} ${tool === value ? 'ring-2 ring-blue-500' : ''}`} onClick={() => setTool(value)}>{label}</button>)}
+        <button key={value} disabled={!usable} aria-pressed={tool === value} className="studio-tool" onClick={() => setTool(value)}>{label}</button>)}
       <label className="flex items-center gap-1 text-xs">颜色 <input aria-label="画笔颜色" type="color" value={color} onChange={e => setColor(e.target.value)} className="h-8 w-9" /></label>
       <label className="text-xs">粗细 <select aria-label="画笔粗细" className={button} value={width} onChange={e => setWidth(Number(e.target.value))}><option value={2}>细</option><option value={3}>中</option><option value={6}>粗</option></select></label>
       <button className={button} disabled={!usable || !history.current.length} onClick={undo}>撤销</button>
@@ -165,7 +165,7 @@ export function AnnotationEditor({ doc, onClose }: { doc: TranslationDocument; o
     }).catch(() => { if (!cancelled) setError('无法读取原始 PDF，请重新打开或重新导入。'); });
     return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
   }, [doc.id, doc.fileType, doc.pdfBlobUrl]);
-  return <div ref={dialog} tabIndex={-1} className="fixed inset-0 z-[100] flex flex-col bg-background text-foreground outline-none" role="dialog" aria-modal="true" aria-label="原文批注编辑器" onKeyDown={event => {
+  return <div ref={dialog} tabIndex={-1} className="studio layer-enter fixed inset-0 z-[100] flex flex-col bg-background text-foreground outline-none" role="dialog" aria-modal="true" aria-label="原文批注编辑器" onKeyDown={event => {
     if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
     if (event.key === 'Tab') {
       const items = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)') || []).filter(element => element.getClientRects().length);

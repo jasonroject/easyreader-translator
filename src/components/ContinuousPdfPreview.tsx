@@ -75,23 +75,23 @@ export function ContinuousPdfPreview({ url }: { url: string }) {
     setJump(String(page));
     root.querySelector(`[data-pdf-page="${page}"]`)?.scrollIntoView({ block: 'start' });
   };
-  return <div className="layer-enter flex min-h-0 flex-1 flex-col">
-    <div className="flex flex-wrap items-center justify-center gap-3 border-b border-border p-2 text-sm">
+  return <div className="studio-preview layer-enter flex min-h-0 flex-1 flex-col">
+    <div className="studio-preview-toolbar">
       <span>连续滚动{pdf ? ` · 共 ${pdf.numPages} 页` : ''}</span>
       <label>跳至 <input aria-label="跳转页码" type="number" min={1} max={pdf?.numPages || 1} value={jump} onChange={e => setJump(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') go(); }} className="w-16 rounded border border-border bg-card px-2 py-1" /> 页</label>
       <button disabled={!pdf} onClick={go} className="disabled:opacity-40">跳转</button>
       <button disabled={zoom <= 50} onClick={() => setZoom(zoom - 25)} className="disabled:opacity-40">缩小</button>
       <span>{zoom}%</span>
       <button disabled={zoom >= 200} onClick={() => setZoom(zoom + 25)} className="disabled:opacity-40">放大</button>
-      <button aria-pressed={editing} disabled={!pdf} className="rounded bg-blue-600 px-3 py-1 text-white disabled:opacity-40" onClick={() => { setEditing(!editing); setTool('read'); }}>{editing ? '收起批注工具' : '备注 / 画笔'}</button>
+      <button aria-pressed={editing} disabled={!pdf} className="studio-button" onClick={() => { setEditing(!editing); setTool('read'); }}>{editing ? '收起批注工具' : '备注 / 画笔'}</button>
     </div>
-    {editing && <div className="flex flex-wrap items-center gap-2 border-b border-border p-2 text-sm">
-      {([['read', '阅读'], ['note', '添加备注'], ['text', '插入文字'], ['pen', '画笔'], ['erase', '橡皮擦']] as const).map(([value, label]) => <button key={value} aria-pressed={tool === value} className={`rounded border border-border px-3 py-1 ${tool === value ? 'bg-blue-600 text-white' : 'bg-card'}`} onClick={() => setTool(value)}><span className="inline-flex items-center gap-1">{value === 'pen' ? <Pencil size={14} /> : value === 'text' ? <Type size={14} /> : value === 'note' ? <MessageSquare size={14} /> : value === 'erase' ? <Eraser size={14} /> : <MousePointer2 size={14} />}{label}</span></button>)}
+    {editing && <div className="studio-annotation-toolbar layer-enter">
+      {([['read', '阅读'], ['note', '添加备注'], ['text', '插入文字'], ['pen', '画笔'], ['erase', '橡皮擦']] as const).map(([value, label]) => <button key={value} aria-pressed={tool === value} className="studio-tool" onClick={() => setTool(value)}><span className="inline-flex items-center gap-1">{value === 'pen' ? <Pencil size={14} /> : value === 'text' ? <Type size={14} /> : value === 'note' ? <MessageSquare size={14} /> : value === 'erase' ? <Eraser size={14} /> : <MousePointer2 size={14} />}{label}</span></button>)}
       <label>颜色 <input aria-label="版式画笔颜色" type="color" value={color} onChange={event => setColor(event.target.value)} className="h-7 w-8 align-middle" /></label>
       <label>粗细 <select aria-label="版式画笔粗细" className="rounded border border-border bg-card px-2 py-1" value={width} onChange={event => setWidth(Number(event.target.value))}><option value={2}>细</option><option value={3}>中</option><option value={6}>粗</option></select></label>
-      <span className="text-xs text-muted-foreground">点击页面添加备注，拖动画线；橡皮擦按住拖过笔迹会擦除整条线，可在每页下方撤销。自动保存；“插入文字”可用“导出插字 PDF”写入副本，普通备注和画笔仅在本机显示。</span>
+<button className="studio-button ml-auto" disabled={!pdf || exportStatus === '导出中…'} onClick={async () => { if (!pdf) return; setExportStatus('导出中…'); try { await exportAnnotatedPdf(url, pdf.numPages, page => `layout:${url}:page:${page}`); setExportStatus('已导出，文字写入了新的 PDF 副本。'); } catch (e: any) { setExportStatus(e.message); } }}>导出插字 PDF</button><span className="studio-tool-hint">点击添加备注或文字 · 拖动画线与擦除 · 自动保存到本机 · 导出仅包含插入文字</span>{exportStatus && <span role="status" className="studio-tool-hint">{exportStatus}</span>}
     </div>}
-    {editing && <div className="flex items-center gap-3 border-b border-border px-3 py-2 text-xs"><button className="surface-button rounded-lg bg-blue-600 px-3 py-2 text-white" disabled={!pdf || exportStatus === '导出中…'} onClick={async () => { if (!pdf) return; setExportStatus('导出中…'); try { await exportAnnotatedPdf(url, pdf.numPages, page => `layout:${url}:page:${page}`); setExportStatus('已导出，文字写入了新的 PDF 副本。'); } catch (e: any) { setExportStatus(e.message); } }}>导出插字 PDF</button><span role="status">{exportStatus}</span></div>}
+
     <div ref={setRoot} role="region" aria-label="连续 PDF 阅读区" tabIndex={0} className="min-h-0 flex-1 overflow-auto bg-muted p-4">
       {!pdf && !error && <p role="status">正在加载 PDF…</p>}
       {error && <p role="alert">预览失败：{error}。可以下载 PDF 查看。</p>}
