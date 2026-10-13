@@ -7,6 +7,10 @@ dist/
 .env.*
 !.env.example
 .deps-ready
+.build-ready
+.local-entry.js
+.launcher-process.json
+.launcher-stopping
 .local-port
 .layout-ready
 .server*

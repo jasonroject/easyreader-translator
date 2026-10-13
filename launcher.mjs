@@ -1,10 +1,11 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { supportedNode } from './scripts/runtime.mjs';
 import { selectPort } from './scripts/local-port.mjs';
+import { buildFingerprint } from './scripts/build-cache.mjs';
 process.chdir(path.dirname(fileURLToPath(import.meta.url)));
 process.env.PATH = path.dirname(process.execPath) + path.delimiter + (process.env.PATH || '');
 if (existsSync('.env.local')) process.loadEnvFile('.env.local');
@@ -35,12 +36,21 @@ try {
   port = String(selected.port);
   url = `http://127.0.0.1:${port}`;
   writeFileSync('.local-port', port);
+  writeFileSync('.local-entry.js', `window.EASYREADER_URL = ${JSON.stringify(url)};\n`);
   if (selected.running) { console.log(`应用已经运行：${url}`); openBrowser(); process.exit(0); }
   const hash = createHash('sha256').update(readFileSync('package-lock.json')).update(process.execPath).update(process.versions.node).update(process.platform).update(process.arch).digest('hex');
   if (!existsSync('node_modules/tsx') || !existsSync('.deps-ready') || readFileSync('.deps-ready', 'utf8') !== hash) {
     console.log('首次启动：正在安装依赖……'); npm('ci'); writeFileSync('.deps-ready', hash);
   }
-  npm('run', 'build');
+  const buildHash = buildFingerprint(process.cwd());
+  if (!existsSync('dist/index.html') || !existsSync('.build-ready') || readFileSync('.build-ready', 'utf8') !== buildHash) {
+    console.log('正在更新阅读界面……'); npm('run', 'build'); writeFileSync('.build-ready', buildHash);
+  } else console.log('界面未变更，直接启动。');
+  if (existsSync('.launcher-stopping')) unlinkSync('.launcher-stopping');
+  writeFileSync('.launcher-process.json', JSON.stringify({ pid: process.pid, script: fileURLToPath(import.meta.url), executable: process.execPath }));
+  process.on('exit', () => {
+    try { if (JSON.parse(readFileSync('.launcher-process.json', 'utf8')).pid === process.pid) unlinkSync('.launcher-process.json'); } catch {}
+  });
   const server = spawn(process.execPath, ['--import', 'tsx', 'server.ts'], { env: { ...process.env, NODE_ENV: 'production', PORT: port }, stdio: 'inherit', windowsHide: true });
   server.on('error', error => { console.error(error.message); process.exit(1); });
   server.on('exit', code => process.exit(code ?? 1));
@@ -52,5 +62,5 @@ try {
     await new Promise(resolve => setTimeout(resolve, 500));
   }
   if (!ready) { server.kill(); throw new Error('启动超时，请检查上方错误。'); }
-  console.log(`已启动：${url}\n关闭窗口或按 Ctrl+C 停止服务。`); openBrowser();
+  console.log(`已启动：${url}\n${process.env.EASYREADER_SILENT === '1' ? '后台运行中，双击“停止后台.cmd”退出。' : '关闭窗口或按 Ctrl+C 停止服务。'}`); openBrowser();
 } catch (error) { console.error(error.message); process.exitCode = 1; }
