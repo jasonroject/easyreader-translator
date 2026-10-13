@@ -1,0 +1,187 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+}
+
+:root {
+  --reading-active: #e0f2fe;
+  --reading-linked: #ecfeff;
+  --reading-hover: #f0f9ff;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: #e2e8f0;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+}
+
+.dark {
+  --reading-active: #090b14;
+  --reading-linked: #070910;
+  --reading-hover: #07080e;
+  --background: #000000;
+  --foreground: #f3f4f6;
+  --card: #08090d;
+  --card-foreground: #f3f4f6;
+  --border: #181a22;
+  --muted: #0e1017;
+  --muted-foreground: #94a3b8;
+  --accent: #14161f;
+  --accent-foreground: #ffffff;
+}
+
+/* Dynamic Rainbow Iridescent Border Effect (彩虹动态炫彩边框效果) */
+@keyframes rainbowRotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.rainbow-border-active {
+  position: relative;
+  isolation: isolate;
+}
+.rainbow-border-active::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(90deg, #ff007f, #9b51e0, #0070f3, #00dfd8, #00e676, #ffab00, #ff007f);
+  background-size: 300% 300%;
+  animation: rainbowRotate 3s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.rainbow-border-hover {
+  position: relative;
+  isolation: isolate;
+}
+.rainbow-border-hover::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(90deg, #ec4899, #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899);
+  background-size: 300% 300%;
+  animation: rainbowRotate 3.5s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Rainbow border accent for subtle hover */
+.rainbow-glow-subtle {
+  box-shadow: 0 0 0 1.5px transparent, 0 4px 14px -2px rgba(124, 58, 237, 0.15);
+}
+
+/* Fluorescent / Neon Underglow Effects for Interactive Modules */
+@keyframes neonPulse {
+  0%, 100% {
+    opacity: 0.9;
+    filter: drop-shadow(0 2px 10px rgba(6, 182, 212, 0.75));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 4px 18px rgba(34, 211, 238, 0.95)) drop-shadow(0 0 6px rgba(16, 185, 129, 0.6));
+  }
+}
+
+.fluorescent-glow-line {
+  position: absolute;
+  bottom: 0;
+  left: 8px;
+  right: 8px;
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #06b6d4 0%, #22d3ee 30%, #34d399 70%, #3b82f6 100%);
+  box-shadow: 0 2px 14px 2px rgba(6, 182, 212, 0.8), 0 0 8px rgba(34, 211, 238, 0.9);
+  animation: neonPulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.fluorescent-glow-line-hover {
+  position: absolute;
+  bottom: 0;
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #0ea5e9 0%, #06b6d4 50%, #10b981 100%);
+  box-shadow: 0 2px 10px 1px rgba(6, 182, 212, 0.65);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.fluorescent-card-ambient {
+  box-shadow: 0 8px 24px -6px rgba(6, 182, 212, 0.25);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar for clean horizontal toolbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(140, 140, 140, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 140, 140, 0.45);
+}
+
+@media print {
+  header, .modal-backdrop, button {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}

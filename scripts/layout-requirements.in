@@ -1,0 +1,4 @@
+babeldoc==0.6.4
+bitstring==4.4.0
+tibs==0.5.7
+rapidocr-onnxruntime==1.4.4
