@@ -22,6 +22,10 @@ import {
   Sparkles,
   Cloud,
   CloudCheck,
+  ZoomIn,
+  ZoomOut,
+  ChevronUp,
+  Maximize2,
 } from 'lucide-react';
 import {
   TranslationDocument,
@@ -62,6 +66,7 @@ interface HeaderProps {
   isSearchOpen?: boolean;
   onToggleSearch?: () => void;
   onUploadFile?: (file: File) => void;
+  onToggleFullscreen: () => void;
 }
 
 const LANGUAGES: { code: SupportedLanguage; label: string; short: string }[] = [
@@ -105,6 +110,7 @@ export const Header: React.FC<HeaderProps> = ({
   isSearchOpen = false,
   onToggleSearch,
   onUploadFile,
+  onToggleFullscreen,
 }: HeaderProps) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [pasteTranslatorOpen, setPasteTranslatorOpen] = useState(false);
@@ -119,42 +125,44 @@ export const Header: React.FC<HeaderProps> = ({
   const currentTargetLang = LANGUAGES.find((l) => l.code === currentDoc.targetLang);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border/80 bg-card/95 backdrop-blur-md transition-colors shadow-2xs">
-      {/* Primary Top Bar */}
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:px-6 gap-2">
-        {/* Left Section: Gemini Brand & Document Selector & Direct PDF Import */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 max-w-[60%] sm:max-w-none">
-          {/* Official Gemini App Icon with Colored Gradient Background */}
-          <div className="flex items-center gap-2 shrink-0">
-            <GeminiBrandBadge size="md" glow={true} />
-            <div className="hidden sm:flex items-center gap-1.5">
-              <span className="font-bold tracking-tight text-sm bg-gradient-to-r from-[#4285F4] via-[#9B72CB] to-[#D96570] bg-clip-text text-transparent">
+    <header className="sticky top-0 z-40 w-full border-b border-border/80 bg-card/95 backdrop-blur-md transition-colors shadow-sm">
+      {/* Primary Top Bar - 优化响应式布局防止重叠 */}
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-2 sm:px-3 gap-1.5 sm:gap-2">
+        {/* Left Section: Brand & Document Selector & Direct PDF Import */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-hidden">
+          {/* Claude-inspired Brand Badge */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#C7765F] to-[#E07B5A] shadow-sm">
+              <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
+            </div>
+            <div className="hidden md:flex items-center gap-1.5">
+              <span className="font-semibold tracking-tight text-xs sm:text-sm text-foreground">
                 EasyReader
               </span>
             </div>
           </div>
 
-          <div className="h-4 w-[1px] bg-border/80 hidden sm:block shrink-0" />
+          <div className="h-3 sm:h-4 w-[1px] bg-border/80 hidden lg:block shrink-0" />
 
-          {/* Current Document Selector Capsule - Responsive & Truncating Gracefully */}
+          {/* Current Document Selector Capsule - Claude 风格 */}
           <button
             onClick={onOpenHistoryDrawer}
-            className="group flex items-center gap-1.5 rounded-full border border-border/80 bg-background/60 hover:bg-background hover:border-blue-500/40 px-2.5 py-1 text-left transition-all min-w-0 max-w-[150px] sm:max-w-xs md:max-w-sm"
+            className="group flex items-center gap-1 sm:gap-1.5 rounded-lg border border-border/80 bg-background/60 hover:bg-[#C7765F]/10 hover:border-[#C7765F]/40 hover:shadow-sm px-2 sm:px-2.5 py-0.5 sm:py-1 text-left transition-all duration-200 min-w-0 flex-1 max-w-[120px] sm:max-w-[180px] lg:max-w-xs"
             title={`当前文档: ${currentDoc.title}\n点击切换历史文档或分类`}
           >
             <ColoredFeatureIcon color="blue" size="sm">
               <FileText className="h-3 w-3" />
             </ColoredFeatureIcon>
 
-            <span className="text-xs font-medium text-foreground truncate min-w-0 flex-1">
+            <span className="text-[11px] sm:text-xs font-medium text-foreground truncate min-w-0 flex-1">
               {currentDoc.title}
             </span>
 
-            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground shrink-0 hidden md:inline leading-none font-normal">
+            <span className="rounded-md bg-muted px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] text-muted-foreground shrink-0 hidden xl:inline leading-none font-normal">
               {currentDoc.category}
             </span>
 
-            <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0 group-hover:text-foreground transition-transform" />
+            <ChevronDown className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground shrink-0 group-hover:text-foreground transition-transform" />
           </button>
 
           {/* Primary High-Visibility "导入本地 PDF" Action Button */}
@@ -162,12 +170,12 @@ export const Header: React.FC<HeaderProps> = ({
             <>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 rounded-full border border-cyan-500/50 bg-cyan-950/40 hover:bg-cyan-900/50 px-2.5 sm:px-3.5 py-1 text-xs font-semibold text-cyan-300 hover:text-white transition-all shadow-[0_0_15px_rgba(6,182,212,0.25)] shrink-0 active:scale-98 cursor-pointer"
+                className="hidden lg:flex items-center gap-1.5 rounded-full border border-cyan-600/40 dark:border-cyan-500/50 bg-cyan-600/15 dark:bg-cyan-950/40 hover:bg-cyan-600/25 dark:hover:bg-cyan-900/50 px-2.5 sm:px-3.5 py-1 text-xs font-semibold text-cyan-700 dark:text-cyan-300 hover:text-cyan-800 dark:hover:text-white transition-all shadow-sm shrink-0 active:scale-98 cursor-pointer"
                 title="直接从本地电脑选择 PDF 文件进行双语翻译（原生解析排版，免复杂 OCR）"
               >
-                <FileUp className="h-3.5 w-3.5 text-cyan-400" />
+                <FileUp className="h-3.5 w-3.5" />
                 <span>📥 导入本地 PDF</span>
-                <span className="hidden md:inline text-[10px] text-cyan-400/80 font-normal">
+                <span className="hidden xl:inline text-[10px] opacity-75 font-normal">
                   (免OCR)
                 </span>
               </button>
@@ -189,11 +197,11 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Center Section: Language & Engine Selector (Desktop & Tablet) */}
         <div className="hidden lg:flex items-center gap-2 shrink-0">
-          {/* Language Direction Capsule */}
+          {/* Language Direction Capsule - 优化悬停效果 */}
           <div className="relative">
             <button
               onClick={() => setShowLangMenu(!showLangMenu)}
-              className="flex items-center gap-1.5 rounded-full border border-border/80 bg-background/60 px-3 py-1 text-xs font-medium text-foreground hover:border-blue-500/40 hover:bg-background transition-all shadow-2xs"
+              className="flex items-center gap-1.5 rounded-full border border-border/80 bg-background/60 px-3 py-1 text-xs font-medium text-foreground hover:border-blue-500/60 hover:bg-background hover:shadow-md hover:shadow-blue-500/10 transition-all duration-200 shadow-2xs"
             >
               <ColoredFeatureIcon color="blue" size="sm">
                 <Globe2 className="h-2.5 w-2.5" />
@@ -236,10 +244,10 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Engine Selector Capsule */}
+          {/* Engine Selector Capsule - 优化悬停效果 */}
           <button
             onClick={onOpenEngineModal}
-            className="flex items-center gap-1.5 rounded-full border border-border/80 bg-background/40 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-purple-400/40 transition-colors"
+            className="flex items-center gap-1.5 rounded-full border border-border/80 bg-background/40 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-purple-400/60 hover:bg-background/60 hover:shadow-md hover:shadow-purple-500/10 transition-all duration-200"
             title="切换自定义翻译引擎与参数"
           >
             <ColoredFeatureIcon color="purple" size="sm">
@@ -274,11 +282,11 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* One-Click Bilingual Export Dropdown */}
+          {/* One-Click Bilingual Export Dropdown - 优化悬停效果 */}
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-1.5 rounded-xl border border-border/80 bg-accent/60 hover:bg-accent px-2.5 py-1.5 text-xs font-medium text-foreground hover:text-blue-400 transition-colors"
+              className="flex items-center gap-1.5 rounded-xl border border-border/80 bg-accent/60 hover:bg-accent hover:border-indigo-500/60 hover:shadow-md hover:shadow-indigo-500/10 px-2.5 py-1.5 text-xs font-medium text-foreground hover:text-blue-400 transition-all duration-200"
               title="一键导出双语对照文档"
             >
               <ColoredFeatureIcon color="indigo" size="sm">
@@ -374,6 +382,15 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
+          {/* Fullscreen Reading Button */}
+          <button
+            onClick={onToggleFullscreen}
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-border/80 bg-accent/50 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
+            title="全屏阅读模式 (F11)"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+
           {/* Theme Switcher */}
           <button
             onClick={onToggleTheme}
@@ -387,32 +404,29 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
 
-          {/* Primary CTA: Translate Button with signature Gemini gradient */}
+          {/* Primary CTA: Translate Button - Claude 风格 */}
           <button
             onClick={onStartTranslateAll}
             disabled={isTranslating}
-            className="flex items-center gap-1.5 rounded-xl px-3 sm:px-4 py-1.5 text-xs font-semibold text-white shadow-md shadow-blue-500/25 hover:opacity-95 disabled:opacity-60 transition-all shrink-0 active:scale-98 cursor-pointer"
-            style={{
-              background: 'linear-gradient(135deg, #1A73E8 0%, #4F46E5 35%, #9333EA 70%, #EC4899 100%)',
-            }}
+            className="flex items-center gap-1.5 rounded-lg px-3 sm:px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:shadow-md disabled:opacity-60 transition-all shrink-0 active:scale-[0.98] cursor-pointer bg-gradient-to-r from-[#C7765F] to-[#E07B5A] hover:from-[#D08670] hover:to-[#E88B6A]"
             title="一键翻译全文：无需一段段点，自动翻译整篇文档的所有内容"
           >
-            <GeminiStarIcon size={14} fill="#FFFFFF" className={isTranslating ? 'animate-spin' : ''} />
+            <Sparkles size={14} className={isTranslating ? 'animate-pulse' : ''} />
             <span>
               {isTranslating
-                ? `正在翻译全文 ${translationPercentage}%`
+                ? `正在翻译 ${translationPercentage}%`
                 : translationPercentage >= 100
                 ? '重新翻译全文'
-                : '⚡ 一键翻译全文'}
+                : '一键翻译全文'}
             </span>
           </button>
         </div>
       </div>
 
-      {/* Secondary Bar: Gemini-Style Colored Feature Chips & Layout Switches */}
-      <div className="mx-auto flex h-10 max-w-7xl items-center justify-between border-t border-border/60 px-3 sm:px-6 text-xs text-muted-foreground bg-background/40 overflow-x-auto no-scrollbar gap-2">
+      {/* Secondary Bar: Colored Feature Chips & Layout Switches */}
+      <div className="mx-auto flex h-12 max-w-7xl items-center justify-between border-t border-border/60 px-2 sm:px-3 text-xs text-muted-foreground bg-background/40 gap-2">
         {/* Left: View Mode & Presentation Style Segmented Controls */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto no-scrollbar">
           {/* Dual/Interlinear/Single Layout Mode */}
           <div className="flex items-center rounded-lg border border-border/70 bg-card/60 p-0.5">
             <button
@@ -504,58 +518,48 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Right: Gemini Colored Tool Chips (有底色的专业功能图标芯片) */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          {/* Plain text translation, replacing the duplicate PDF import chip. */}
-          {(
-            <button
-              onClick={() => setPasteTranslatorOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 transition-all shrink-0 active:scale-98 cursor-pointer shadow-2xs"
-              title="输入或粘贴文字进行双栏翻译"
-            >
-              <ColoredFeatureIcon color="blue" size="sm">
-                <FileText className="h-3 w-3 text-cyan-400" />
-              </ColoredFeatureIcon>
-              <span>粘贴翻译</span>
-            </button>
-          )}
+        {/* Right: Colored Tool Chips (有底色的专业功能图标芯片) */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto no-scrollbar">
+          {/* Plain text translation chip */}
+          <button
+            onClick={() => setPasteTranslatorOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-700 dark:text-cyan-300 border border-cyan-600/30 dark:border-cyan-500/40 transition-all shrink-0 active:scale-98 cursor-pointer shadow-sm"
+            title="输入或粘贴文字进行双栏翻译"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            <span>粘贴翻译</span>
+          </button>
 
-          {/* AI Smart Executive Summary Chip */}
+          {/* AI Smart Executive Summary Chip - 独立样式 */}
           <button
             onClick={onOpenSummaryModal}
-            className="flex items-center gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 text-[11px] font-medium hover:bg-accent/80 transition-colors text-foreground"
-            title="查看或提炼 AI 智能文档核心摘要"
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold bg-gradient-to-r from-[#C7765F]/20 to-[#E07B5A]/20 hover:from-[#C7765F]/30 hover:to-[#E07B5A]/30 text-[#C7765F] dark:text-[#E07B5A] border border-[#C7765F]/30 transition-all shrink-0 shadow-sm"
+            title="使用自定义 AI 提炼文档核心摘要"
           >
-            <ColoredFeatureIcon color="gemini" size="sm">
-              <Sparkles className="h-3 w-3" />
-            </ColoredFeatureIcon>
-            <span className="hidden md:inline">智能摘要</span>
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">一键摘要</span>
           </button>
 
           {/* Scanned OCR Chip */}
           <button
             onClick={onOpenOcrModal}
-            className="flex items-center gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 text-[11px] font-medium hover:bg-accent/80 transition-colors text-foreground"
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium hover:bg-indigo-600/10 dark:hover:bg-indigo-500/10 transition-colors text-indigo-700 dark:text-indigo-400 border border-transparent hover:border-indigo-600/20 dark:hover:border-indigo-500/20"
             title="针对拍照纸质文档或纯图片提取文字 (OCR)"
           >
-            <ColoredFeatureIcon color="indigo" size="sm">
-              <Camera className="h-3 w-3" />
-            </ColoredFeatureIcon>
-            <span className="hidden lg:inline">截图/拍照识别</span>
+            <Camera className="h-3.5 w-3.5" />
+            <span className="hidden lg:inline">截图识别</span>
           </button>
 
           {/* Glossary Chip */}
           <button
             onClick={onOpenGlossaryDrawer}
-            className="flex items-center gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 text-[11px] font-medium hover:bg-accent/80 transition-colors text-foreground"
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium hover:bg-emerald-600/10 dark:hover:bg-emerald-500/10 transition-colors text-emerald-700 dark:text-emerald-400 border border-transparent hover:border-emerald-600/20 dark:hover:border-emerald-500/20"
             title="重点专业术语库与词汇高亮管理"
           >
-            <ColoredFeatureIcon color="emerald" size="sm">
-              <BookOpen className="h-3 w-3" />
-            </ColoredFeatureIcon>
+            <BookOpen className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">术语库</span>
             {currentDoc.glossary && currentDoc.glossary.length > 0 && (
-              <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400 leading-none">
+              <span className="rounded-full bg-emerald-600/20 dark:bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-400 leading-none">
                 {currentDoc.glossary.length}
               </span>
             )}
@@ -564,40 +568,38 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Batch Upload Chip */}
           <button
             onClick={onOpenBatchModal}
-            className="flex items-center gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 text-[11px] font-medium hover:bg-accent/80 transition-colors text-foreground"
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium hover:bg-purple-600/10 dark:hover:bg-purple-500/10 transition-colors text-purple-700 dark:text-purple-400 border border-transparent hover:border-purple-600/20 dark:hover:border-purple-500/20"
             title="批量导入多个 PDF/文档文件"
           >
-            <ColoredFeatureIcon color="purple" size="sm">
-              <FolderSync className="h-3 w-3" />
-            </ColoredFeatureIcon>
+            <FolderSync className="h-3.5 w-3.5" />
             <span className="hidden xl:inline">批量导入</span>
           </button>
 
           {/* History Library Chip */}
           <button
             onClick={onOpenHistoryDrawer}
-            className="flex items-center gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 text-[11px] font-medium hover:bg-accent/80 transition-colors text-foreground"
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium hover:bg-sky-600/10 dark:hover:bg-sky-500/10 transition-colors text-sky-700 dark:text-sky-400 border border-transparent hover:border-sky-600/20 dark:hover:border-sky-500/20"
             title="历史文档检索与分类管理"
           >
-            <ColoredFeatureIcon color="sky" size="sm">
-              <History className="h-3 w-3" />
-            </ColoredFeatureIcon>
+            <History className="h-3.5 w-3.5" />
             <span className="hidden xl:inline">历史库</span>
           </button>
 
           {/* Cloud Sync Status Chip */}
           <button
             onClick={onOpenSyncModal}
-            className="flex items-center gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 text-[11px] font-medium hover:bg-accent/80 transition-colors text-foreground"
+            className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors border border-transparent ${
+              syncStatus === 'synced'
+                ? 'hover:bg-emerald-600/10 dark:hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:border-emerald-600/20 dark:hover:border-emerald-500/20'
+                : 'hover:bg-blue-600/10 dark:hover:bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:border-blue-600/20 dark:hover:border-blue-500/20'
+            }`}
             title="跨平台云端同步与多设备凭证"
           >
-            <ColoredFeatureIcon color={syncStatus === 'synced' ? 'emerald' : 'blue'} size="sm">
-              {syncStatus === 'synced' ? (
-                <CloudCheck className="h-3 w-3" />
-              ) : (
-                <Cloud className="h-3 w-3" />
-              )}
-            </ColoredFeatureIcon>
+            {syncStatus === 'synced' ? (
+              <CloudCheck className="h-3.5 w-3.5" />
+            ) : (
+              <Cloud className="h-3.5 w-3.5" />
+            )}
             <span className="hidden 2xl:inline">
               {syncStatus === 'synced' ? '已同步' : '云端同步'}
             </span>
@@ -606,24 +608,22 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Offline Protection Chip */}
           <button
             onClick={onToggleOffline}
-            className={`flex items-center gap-1 rounded-lg px-1.5 sm:px-2 py-1 text-[11px] transition-colors ${
+            className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors border ${
               isOffline
-                ? 'bg-amber-500/20 text-amber-300 font-semibold'
-                : 'text-muted-foreground hover:bg-accent'
+                ? 'bg-amber-600/20 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-600/30 dark:border-amber-500/30 font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-600/10 dark:hover:bg-slate-500/10 border-transparent hover:border-slate-600/20 dark:hover:border-slate-500/20'
             }`}
             title={isOffline ? '当前为离线模式 (弱网保护已开启)' : '点击切换弱网/离线阅读模式'}
           >
-            <ColoredFeatureIcon color={isOffline ? 'amber' : 'blue'} size="sm">
-              {isOffline ? <WifiOff className="h-3 w-3" /> : <Wifi className="h-3 w-3" />}
-            </ColoredFeatureIcon>
+            {isOffline ? <WifiOff className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
             <span className="hidden 2xl:inline">{isOffline ? '离线' : '在线'}</span>
           </button>
 
-          {/* Translation Progress Indicator */}
+          {/* Translation Progress Indicator - Claude 风格 */}
           <div className="flex items-center gap-1.5 pl-1.5 sm:pl-2 border-l border-border/60 shrink-0">
             <div className="w-12 sm:w-16 bg-muted rounded-full h-1.5 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-[#4285F4] to-[#9B72CB] h-1.5 transition-all duration-300"
+                className="bg-gradient-to-r from-[#C7765F] to-[#E07B5A] h-1.5 transition-all duration-300"
                 style={{ width: `${translationPercentage}%` }}
               />
             </div>
@@ -631,6 +631,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
+
       <PasteTranslator open={pasteTranslatorOpen} onClose={() => setPasteTranslatorOpen(false)} />
     </header>
   );

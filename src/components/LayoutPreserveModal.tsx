@@ -1,6 +1,6 @@
 import { EngineeringOptions } from './EngineeringOptions';
 import { TranslationProgress } from './TranslationProgress';
-import { Layers, FileText, Columns2, Download, ArrowUpRight, ChevronDown, Upload, ArrowLeft, FileCheck2 } from 'lucide-react';
+import { Layers, FileText, Columns2, Download, ArrowUpRight, ChevronDown, Upload, ArrowLeft, FileCheck2, Maximize, Minimize, SlidersHorizontal } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import React, { useEffect, useRef, useState } from 'react';
 import { TranslationDocument } from '../types';
@@ -22,6 +22,26 @@ export function LayoutPreserveModal({ isOpen, onClose, document: doc }: { isOpen
   const [busy, setBusy] = useState(false), [view, setView] = useState<'dual' | 'mono' | 'source'>('dual');
   const [domain, setDomain] = useState('general'), [glossary, setGlossary] = useState('');
   const [speed, setSpeed] = useState('balanced'), [ocr, setOcr] = useState('balanced');
+  const [fullscreen, setFullscreen] = useState(false);
+  const [readerTools, setReaderTools] = useState(false);
+  const fullscreenButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!isOpen) { setFullscreen(false); setReaderTools(false); return; }
+    const handleKey = (event: KeyboardEvent) => {
+      const toggle = event.key === 'F11' || ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'f');
+      if ((toggle && job?.state === 'done') || (event.key === 'Escape' && fullscreen)) {
+        event.preventDefault(); event.stopImmediatePropagation();
+        setFullscreen(value => event.key === 'Escape' ? false : !value);
+      }
+    };
+    // Capture before the main reader's shortcut so the two modes never conflict.
+    window.addEventListener('keydown', handleKey, true);
+    return () => window.removeEventListener('keydown', handleKey, true);
+  }, [isOpen, fullscreen, job?.state]);
+  useEffect(() => {
+    setReaderTools(false);
+    if (!fullscreen && isOpen) fullscreenButton.current?.focus();
+  }, [fullscreen]);
   const reducedMotion = useReducedMotion();
   const input = useRef<HTMLInputElement>(null);
   const [jobId, setJobId] = useState(() => localStorage.getItem('easyreader-layout-job') || '');
@@ -35,7 +55,7 @@ export function LayoutPreserveModal({ isOpen, onClose, document: doc }: { isOpen
         if (!response.ok) throw new Error(result.error || '读取任务失败');
         if (stopped) return;
         setJob(result); setError('');
-        if (result.state === 'running') timer = setTimeout(poll, 1500);
+        if (result.state === 'running') timer = setTimeout(poll, 800);
       } catch (e: any) { if (!stopped) { setError(e.message); timer = setTimeout(poll, 5000); } }
     };
     void poll();
@@ -73,7 +93,7 @@ export function LayoutPreserveModal({ isOpen, onClose, document: doc }: { isOpen
   };
   if (!isOpen) return null;
   const button = 'studio-button';
-  return <div className="studio studio-layout layer-enter fixed inset-0 z-50 flex flex-col text-foreground" role="dialog" aria-modal="true" aria-label="保留版式">
+  return <div className={`studio studio-layout layer-enter fixed inset-0 z-50 flex flex-col text-foreground ${fullscreen ? 'studio-reading-fullscreen' : ''}`} role="dialog" aria-modal="true" aria-label="保留版式">
     <header className="studio-header">
       <div className="flex items-center gap-4"><span className="studio-mark"><Layers size={22} strokeWidth={1.5} /></span><div><p className="studio-eyebrow">DOCUMENT STUDIO</p><h1 className="text-xl font-semibold tracking-tight">保留版式 <span className="studio-byline">BabelDOC</span></h1></div></div>
       <button className={button} onClick={onClose}><ArrowLeft size={15} />返回阅读</button>
@@ -92,12 +112,20 @@ export function LayoutPreserveModal({ isOpen, onClose, document: doc }: { isOpen
       <span className="studio-filename">{name || '选择一份 PDF，保留它原本的样子 · 最大 50 MB'}</span>
     </div>
     <div className="studio-config-grid">
-      <label className="studio-field">引擎 <select className={button} value={engine} disabled={running} onChange={e => setEngine(e.target.value)}><option value="bing">Bing（默认）</option><option value="google">Google</option><option value="gemini-flash">Gemini · 逻辑翻译（需配置）</option></select></label>
+      <label className="studio-field">引擎 <select className={button} value={engine} disabled={running} onChange={e => setEngine(e.target.value)}>
+        <option value="bing">Bing（默认 · 免 Key）</option>
+        <option value="google">Google（免 Key）</option>
+        <option value="gemini-flash">Gemini Flash（需配置）</option>
+        <option value="openai">OpenAI GPT（需配置）</option>
+        <option value="claude">Claude（需配置）</option>
+        <option value="deepseek">DeepSeek（需配置）</option>
+        <option value="qwen">通义千问（需配置）</option>
+      </select></label>
       <label className="studio-field">译为 <select className={button} value={target} disabled={running} onChange={e => setTarget(e.target.value as typeof target)}>
         {Object.entries({ 'zh-CN': '简体中文', 'zh-TW': '繁体中文', en: '英语', ja: '日语', ko: '韩语', fr: '法语', de: '德语', es: '西班牙语', ru: '俄语', it: '意大利语', pt: '葡萄牙语', ar: '阿拉伯语' }).map(([key, value]) => <option key={key} value={key}>{value}</option>)}
       </select></label>
       <EngineeringOptions domain={domain} onDomain={setDomain} glossary={glossary} onGlossary={setGlossary} disabled={running} />
-      <label className="studio-field">速度 <select aria-label="翻译速度" disabled={running} value={speed} onChange={e => setSpeed(e.target.value)} className={button}><option value="stable">稳妥 · 单任务</option><option value="balanced">均衡 · 并发复用</option><option value="fast">加速 · 可能限流</option></select></label>
+      <label className="studio-field">速度 <select aria-label="翻译速度" disabled={running} value={speed} onChange={e => setSpeed(e.target.value)} className={button}><option value="stable">稳妥 · 串行翻译</option><option value="balanced">均衡 · 3 并发（推荐）</option><option value="fast">极速 · 5 并发</option></select></label>
       <label className="studio-field">OCR <select aria-label="OCR 精度" disabled={running} value={ocr} onChange={e => setOcr(e.target.value)} className={button}><option value="fast">快速 · 清晰扫描件</option><option value="balanced">均衡</option><option value="quality">精细 · 小字扫描件</option></select></label>
     </div>
     <div className="studio-settings-footer"><p>统一专业术语，让公式、图片与阅读节奏留在原位。</p><div className="flex items-center gap-2">{job?.state === 'running' && <button className={button} onClick={cancel}>取消任务</button>}<button className="studio-primary" disabled={!file || running} onClick={start}>{running ? '正在生成…' : '生成保留版式 PDF'}<ArrowUpRight size={16} /></button></div></div>
@@ -109,9 +137,20 @@ export function LayoutPreserveModal({ isOpen, onClose, document: doc }: { isOpen
     {job?.state === 'done' ? <>
       <div className="studio-result-toolbar">
         <div className="studio-segments" role="group" aria-label="PDF 视图">{([['source', '原始 PDF', Layers], ['dual', '双语对照', Columns2], ['mono', '仅看译文', FileText]] as const).map(([value, label, Icon]) => <button key={value} aria-pressed={view === value} onClick={() => setView(value)}>{view === value && <motion.span className="studio-tab-indicator" layoutId="layout-view-pill" transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 36 }} />}<Icon size={15} /><span>{label}</span></button>)}</div>
-        <div className="flex flex-wrap gap-2"><a className={button} href={`/api/layout/jobs/${job.id}/mono.pdf?download=1`}><Download size={15} />下载译文 PDF</a><a className={button} href={`/api/layout/jobs/${job.id}/dual.pdf?download=1`}><Download size={15} />下载双语 PDF</a></div>
+        <div className="flex flex-wrap gap-2">
+          {fullscreen && <button className={button} aria-pressed={readerTools} onClick={() => setReaderTools(value => !value)}><SlidersHorizontal size={15} />{readerTools ? '收起工具' : '阅读工具'}</button>}
+          <button ref={fullscreenButton} className={button} aria-pressed={fullscreen} title="全屏阅读 · Esc 退出 · F11 切换" onClick={() => setFullscreen(value => !value)}>{fullscreen ? <Minimize size={15} /> : <Maximize size={15} />}{fullscreen ? '退出全屏' : '全屏阅读'}{fullscreen && <kbd className="reader-escape-hint">Esc</kbd>}</button>
+          <a className={`${button} studio-reader-download`} href={`/api/layout/jobs/${job.id}/mono.pdf?download=1`}><Download size={15} />下载译文 PDF</a>
+          <a className={`${button} studio-reader-download`} href={`/api/layout/jobs/${job.id}/dual.pdf?download=1`}><Download size={15} />下载双语 PDF</a>
+        </div>
       </div>
-      <PdfPreview key={`${job.id}-${view}`} url={`/api/layout/jobs/${job.id}/${view}.pdf`} />
+      <PdfPreview
+        fullscreen={fullscreen}
+        showControls={!fullscreen || readerTools}
+        key={`${job.id}-${view}`}
+        sourceUrl={`/api/layout/jobs/${job.id}/${view === 'dual' ? 'source' : view}.pdf`}
+        targetUrl={view === 'dual' ? `/api/layout/jobs/${job.id}/mono.pdf` : undefined}
+      />
     </> : <div className="studio-empty">
       <div className="studio-paper-art" aria-hidden="true"><div className="studio-paper-back" /><div className="studio-paper-front"><FileCheck2 size={28} strokeWidth={1.2} /><i /><i /><i /><div className="studio-paper-caption">Aa <span>文</span></div></div></div>
       <p className="studio-eyebrow">SAME LAYOUT. NEW LANGUAGE.</p>

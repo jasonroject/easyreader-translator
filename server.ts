@@ -509,13 +509,11 @@ Output raw JSON only.
 // Smart Document Executive Summary endpoint
 app.post('/api/summary', async (req: Request, res: Response) => {
   try {
-    const { text, targetLang = 'zh-CN', title = 'Document' } = req.body;
+    const { text, targetLang = 'zh-CN', title = 'Document', customAiConfig } = req.body;
 
     if (!text || typeof text !== 'string') {
       return res.status(400).json({ error: 'Text content is required' });
     }
-
-    if (!ai) return res.status(400).json({ error: 'AI 摘要需要配置 Gemini 密钥；Bing 和 Google 仅提供正文翻译。' });
 
     const summaryPrompt = `
 Analyze the following document titled "${title}".
@@ -545,6 +543,69 @@ Return pure JSON with this structure:
 Output raw JSON only.
 `;
 
+    // 优先使用自定义 AI 配置
+    if (customAiConfig && customAiConfig.endpoint) {
+      try {
+        let rawEndpoint = customAiConfig.endpoint.trim().replace(/\/+$/, '');
+        if (!rawEndpoint.endsWith('/chat/completions')) {
+          if (!rawEndpoint.endsWith('/v1')) {
+            rawEndpoint = `${rawEndpoint}/v1`;
+          }
+          rawEndpoint = `${rawEndpoint}/chat/completions`;
+        }
+
+        const apiKey = customAiConfig.apiKey ? customAiConfig.apiKey.trim() : '';
+        const model = customAiConfig.model && customAiConfig.model.trim() ? customAiConfig.model.trim() : 'gpt-4';
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const customAiRes = await fetch(rawEndpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: '你是一名专业的文档分析专家,擅长提炼核心摘要与关键信息。' },
+              { role: 'user', content: summaryPrompt },
+            ],
+            temperature: 0.3,
+          }),
+        });
+
+        if (!customAiRes.ok) {
+          const errText = await customAiRes.text().catch(() => '');
+          throw new Error(`自定义 AI 摘要请求失败 (${customAiRes.status}): ${errText.slice(0, 200)}`);
+        }
+
+        const customAiData: any = await customAiRes.json();
+        const content = customAiData?.choices?.[0]?.message?.content;
+        if (!content) throw new Error('自定义 AI 未返回有效摘要内容');
+
+        let summary;
+        try {
+          summary = JSON.parse(content);
+        } catch {
+          const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
+          summary = JSON.parse(cleaned);
+        }
+
+        return res.json({ success: true, summary, provider: 'custom-ai' });
+      } catch (customError: any) {
+        console.error('Custom AI summary error:', customError);
+        // 自定义 AI 失败时回退到 Gemini (如果可用)
+        if (!ai) {
+          return res.status(500).json({
+            error: '自定义 AI 摘要失败，且未配置 Gemini 备用密钥',
+            details: customError.message || String(customError),
+          });
+        }
+        console.log('Falling back to Gemini...');
+      }
+    }
+
+    // 回退到 Gemini
+    if (!ai) return res.status(400).json({ error: 'AI 摘要需要配置 Gemini 密钥或自定义 AI 接口。' });
+
     const response = await ai.models.generateContent({
       model: geminiModel,
       contents: summaryPrompt,
@@ -565,6 +626,7 @@ Output raw JSON only.
     res.json({
       success: true,
       summary,
+      provider: 'gemini',
     });
   } catch (error: any) {
     console.error('Summary error:', error);

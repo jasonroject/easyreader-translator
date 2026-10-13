@@ -54,6 +54,7 @@ interface DualPaneViewerProps {
   isGeneratingSummary?: boolean;
   isSearchOpen?: boolean;
   onToggleSearch?: () => void;
+  isFullscreenReading?: boolean;
 }
 
 export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
@@ -76,6 +77,7 @@ export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
   isGeneratingSummary = false,
   isSearchOpen,
   onToggleSearch,
+  isFullscreenReading = false,
 }) => {
   const transitionRoot = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1001,7 +1003,7 @@ export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
             onTouchStart={() => markActiveSource('left')}
             className="h-full overflow-y-auto px-4 py-6 sm:px-8 bg-card/30 overscroll-contain"
           >
-            <div className="mx-auto max-w-2xl space-y-6">
+            <div className={`mx-auto space-y-6 ${isFullscreenReading ? 'max-w-7xl' : 'max-w-3xl'}`}>
               <div className="flex items-center justify-between border-b border-border/70 pb-3">
                 <div className="flex items-center gap-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-bold text-muted-foreground">
@@ -1258,7 +1260,7 @@ export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
             onTouchStart={() => markActiveSource('right')}
             className="h-full overflow-y-auto px-4 py-6 sm:px-8 bg-card/60 overscroll-contain"
           >
-            <div className="mx-auto max-w-2xl space-y-6">
+            <div className={`mx-auto space-y-6 ${isFullscreenReading ? 'max-w-7xl' : 'max-w-3xl'}`}>
               <div className="flex items-center justify-between border-b border-border/70 pb-3">
                 <div className="flex items-center gap-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/20 text-xs font-bold text-blue-400">
@@ -1631,7 +1633,7 @@ export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
           ref={interlinearRef}
           className="h-full overflow-y-auto px-4 py-8 sm:px-12 bg-background/50 overscroll-contain"
         >
-          <div className="mx-auto max-w-3xl space-y-6">
+          <div className={`mx-auto space-y-6 ${isFullscreenReading ? 'max-w-7xl' : 'max-w-3xl'}`}>
             <div className="border-b border-border/70 pb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold text-foreground">
                 段落交替双语对照模式
@@ -1834,7 +1836,7 @@ export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
       {/* Target Only Mode (纯译文阅读) */}
       {viewerMode === 'target_only' && (
         <div className="h-full overflow-y-auto px-4 py-8 sm:px-12 bg-background/50 overscroll-contain">
-          <div className="mx-auto max-w-3xl space-y-5">
+          <div className={`mx-auto space-y-5 ${isFullscreenReading ? 'max-w-7xl' : 'max-w-3xl'}`}>
             <div className="border-b border-border/70 pb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold text-foreground">
                 完整译文畅读模式 ({document.targetLang})
@@ -1869,7 +1871,7 @@ export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
       {/* Source Only Mode (纯原文) */}
       {viewerMode === 'source_only' && (
         <div className="h-full overflow-y-auto px-4 py-8 sm:px-12 bg-background/50 overscroll-contain">
-          <div className="mx-auto max-w-3xl space-y-5">
+          <div className={`mx-auto space-y-5 ${isFullscreenReading ? 'max-w-7xl' : 'max-w-3xl'}`}>
             <div className="border-b border-border/70 pb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold text-foreground">
                 原始文档模式 ({document.sourceLang})

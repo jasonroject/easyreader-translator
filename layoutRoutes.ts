@@ -54,13 +54,52 @@ layoutRoutes.post('/jobs', express.raw({ type: 'application/pdf', limit: '50mb' 
   const speed = String(req.query.speed || 'balanced'), ocr = String(req.query.ocr || 'balanced');
   const domain = String(req.query.domain || 'general'), glossary = String(req.query.glossary || '');
   if (!['stable', 'balanced', 'fast'].includes(speed) || !['fast', 'balanced', 'quality'].includes(ocr) || !Object.hasOwn(engineeringDomains, domain) || glossary.length > 2000) return res.status(400).json({ error: '版式参数不合法。' });
-  if (!['bing', 'google', 'gemini-flash'].includes(engine) || !languages.has(source) || !languages.has(target) || target === 'auto') return res.status(400).json({ error: '不支持的语言或翻译引擎。' });
-  if (engine === 'gemini-flash' && (!process.env.GEMINI_API_KEY || !process.env.GEMINI_MODEL)) return res.status(400).json({ error: 'AI 工程翻译需要在 .env.local 中配置 GEMINI_API_KEY 与 GEMINI_MODEL。免 Key 可选 Bing 或 Google。' });
+
+  const aiEngines = ['bing', 'google', 'gemini-flash', 'openai', 'claude', 'deepseek', 'qwen'];
+  if (!aiEngines.includes(engine) || !languages.has(source) || !languages.has(target) || target === 'auto') return res.status(400).json({ error: '不支持的语言或翻译引擎。' });
+
+  // AI 引擎配置检查
+  const aiEngineConfigs: Record<string, { key: string; model?: string }> = {
+    'gemini-flash': { key: 'GEMINI_API_KEY', model: 'GEMINI_MODEL' },
+    'openai': { key: 'OPENAI_API_KEY', model: 'OPENAI_MODEL' },
+    'claude': { key: 'ANTHROPIC_API_KEY', model: 'ANTHROPIC_MODEL' },
+    'deepseek': { key: 'DEEPSEEK_API_KEY', model: 'DEEPSEEK_MODEL' },
+    'qwen': { key: 'QWEN_API_KEY', model: 'QWEN_MODEL' },
+  };
+
+  if (aiEngineConfigs[engine]) {
+    const config = aiEngineConfigs[engine];
+    const apiKey = process.env[config.key];
+    const model = config.model ? process.env[config.model] : undefined;
+    if (!apiKey || (config.model && !model)) {
+      return res.status(400).json({ error: `${engine.toUpperCase()} 翻译需要在 .env.local 中配置 ${config.key}${config.model ? ` 与 ${config.model}` : ''}。免 Key 可选 Bing 或 Google。` });
+    }
+  }
   const id = randomUUID();
   const dir = path.join(root, id);
   mkdirSync(dir, { recursive: true });
   writeFileSync(path.join(dir, 'source.pdf'), req.body);
-  writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ engine, source, target, speed, ocr, domain, glossary, model: engine === 'gemini-flash' ? process.env.GEMINI_MODEL : '', api_url: `http://127.0.0.1:${process.env.PORT || 3000}/api/translate` }));
+  const aiConfig: Record<string, any> = { engine, source, target, speed, ocr, domain, glossary, api_url: `http://127.0.0.1:${process.env.PORT || 3000}/api/translate` };
+
+  // 根据引擎类型添加 API Key 和 Model
+  if (engine === 'gemini-flash') {
+    aiConfig.api_key = process.env.GEMINI_API_KEY;
+    aiConfig.model = process.env.GEMINI_MODEL;
+  } else if (engine === 'openai') {
+    aiConfig.api_key = process.env.OPENAI_API_KEY;
+    aiConfig.model = process.env.OPENAI_MODEL || 'gpt-4o';
+  } else if (engine === 'claude') {
+    aiConfig.api_key = process.env.ANTHROPIC_API_KEY;
+    aiConfig.model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+  } else if (engine === 'deepseek') {
+    aiConfig.api_key = process.env.DEEPSEEK_API_KEY;
+    aiConfig.model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+  } else if (engine === 'qwen') {
+    aiConfig.api_key = process.env.QWEN_API_KEY;
+    aiConfig.model = process.env.QWEN_MODEL || 'qwen-turbo';
+  }
+
+  writeFileSync(path.join(dir, 'config.json'), JSON.stringify(aiConfig));
   const job: Job = { id, state: 'running', stage: '正在准备保留版式环境', progress: 0, startedAt: Date.now() };
   jobs.set(id, job);
   const save = () => { job.updatedAt = Date.now(); writeFileSync(path.join(dir, 'status.json'), JSON.stringify(job)); };

@@ -129,7 +129,8 @@ export const apiService = {
     text: string;
     targetLang?: SupportedLanguage;
     title?: string;
-  }): Promise<{ success: boolean; summary?: DocumentSummary; error?: string }> {
+    customAiConfig?: any;
+  }): Promise<{ success: boolean; summary?: DocumentSummary; error?: string; provider?: string }> {
     try {
       const response = await fetch('/api/summary', {
         method: 'POST',

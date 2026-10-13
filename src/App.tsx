@@ -5,6 +5,7 @@ import { LayoutPreserveModal } from './components/LayoutPreserveModal';
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { X } from 'lucide-react';
 import {
   TranslationDocument,
   ViewerLayoutMode,
@@ -100,6 +101,9 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => storageService.getTheme());
   const [isOffline, setIsOffline] = useState<boolean>(() => storageService.isForceOffline());
 
+  // Fullscreen Reading Mode (全屏阅读模式)
+  const [isFullscreenReading, setIsFullscreenReading] = useState<boolean>(false);
+
   // Cloud sync state
   const [syncCode, setSyncCode] = useState<string>(() => storageService.getOrCreateSyncCode());
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'unsaved'>('synced');
@@ -132,6 +136,23 @@ export default function App() {
   useEffect(() => {
     storageService.setTheme(theme);
   }, [theme]);
+
+  // Fullscreen Reading Mode Keyboard Shortcut (F11 或 Ctrl+Shift+F)
+  useEffect(() => {
+    const handleFullscreenShortcut = (e: KeyboardEvent) => {
+      if (e.key === 'F11' || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F')) {
+        e.preventDefault();
+        setIsFullscreenReading(prev => !prev);
+      }
+      // ESC 退出全屏
+      if (e.key === 'Escape' && isFullscreenReading) {
+        setIsFullscreenReading(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleFullscreenShortcut);
+    return () => window.removeEventListener('keydown', handleFullscreenShortcut);
+  }, [isFullscreenReading]);
 
   // Window online/offline listener
   useEffect(() => {
@@ -461,25 +482,31 @@ export default function App() {
   const handleRegenerateSummary = async () => {
     if (!activeDoc) return;
     setIsGeneratingSummary(true);
-    showToast('正在由 Gemini 深度提炼文档核心摘要...');
+
+    // 智能显示提示信息
+    const aiProvider = activeEngine.id === 'custom-ai' ? '自定义 AI' : 'AI';
+    showToast(`正在由 ${aiProvider} 深度提炼文档核心摘要...`);
+
     try {
       const fullText = activeDoc.segments
         .map((s) => (s.translated ? `${s.original}\n${s.translated}` : s.original))
         .join('\n\n');
 
+      // 传递自定义 AI 配置
       const resp = await apiService.generateSummary({
         text: fullText,
         targetLang: activeDoc.targetLang,
         title: activeDoc.title,
+        customAiConfig: activeEngine.id === 'custom-ai' ? customAiConfig : undefined,
       });
 
-      if (!resp.success) throw new Error(resp.error || '摘要生成失败，请配置 Gemini 密钥');
+      if (!resp.success) throw new Error(resp.error || '摘要生成失败');
       if (resp.summary) {
         updateCurrentDocument((prev) => ({
           ...prev,
           summary: resp.summary,
         }));
-        showToast('已更新 AI 智能文档核心摘要！');
+        showToast(`已更新 AI 智能文档核心摘要！${resp.provider ? ` (由 ${resp.provider} 生成)` : ''}`);
       }
     } catch (err: any) {
       showToast(`生成摘要失败: ${err.message}`);
@@ -575,41 +602,58 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Gemini-style Top Bar */}
-      <Header
-        currentDoc={activeDoc}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        isOffline={isOffline}
-        onToggleOffline={handleToggleOffline}
-        syncStatus={syncStatus}
-        onSyncCloud={handleSyncCloud}
-        onOpenSyncModal={() => setIsSyncModalOpen(true)}
-        onOpenSummaryModal={() => setIsSummaryModalOpen(true)}
-        onOpenOcrModal={() => setIsOcrModalOpen(true)}
-        onOpenGlossaryDrawer={() => setIsGlossaryDrawerOpen(true)}
-        onOpenHistoryDrawer={() => setIsHistoryDrawerOpen(true)}
-        onOpenBatchModal={() => setIsBatchModalOpen(true)}
-        onOpenEngineModal={() => setIsEngineModalOpen(true)}
-        viewerMode={viewerMode}
-        onChangeViewerMode={setViewerMode}
-        presentationStyle={presentationStyle}
-        onChangePresentationStyle={handleSetPresentationStyle}
-        syncScroll={syncScroll}
-        onToggleSyncScroll={() => setSyncScroll(!syncScroll)}
-        isTranslating={isTranslating}
-        onStartTranslateAll={handleStartTranslateAll}
-        onUpdateLanguage={handleUpdateLanguage}
-        activeEngine={activeEngine}
-        isSearchOpen={isSearchOpen}
-        onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
-        onUploadFile={handleUploadFile}
-      />
+      {/* Main Top Bar - 全屏模式下隐藏 */}
+      {!isFullscreenReading && (
+        <Header
+          currentDoc={activeDoc}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          isOffline={isOffline}
+          onToggleOffline={handleToggleOffline}
+          syncStatus={syncStatus}
+          onSyncCloud={handleSyncCloud}
+          onOpenSyncModal={() => setIsSyncModalOpen(true)}
+          onOpenSummaryModal={() => setIsSummaryModalOpen(true)}
+          onOpenOcrModal={() => setIsOcrModalOpen(true)}
+          onOpenGlossaryDrawer={() => setIsGlossaryDrawerOpen(true)}
+          onOpenHistoryDrawer={() => setIsHistoryDrawerOpen(true)}
+          onOpenBatchModal={() => setIsBatchModalOpen(true)}
+          onOpenEngineModal={() => setIsEngineModalOpen(true)}
+          viewerMode={viewerMode}
+          onChangeViewerMode={setViewerMode}
+          presentationStyle={presentationStyle}
+          onChangePresentationStyle={handleSetPresentationStyle}
+          syncScroll={syncScroll}
+          onToggleSyncScroll={() => setSyncScroll(!syncScroll)}
+          isTranslating={isTranslating}
+          onStartTranslateAll={handleStartTranslateAll}
+          onUpdateLanguage={handleUpdateLanguage}
+          activeEngine={activeEngine}
+          isSearchOpen={isSearchOpen}
+          onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
+          onUploadFile={handleUploadFile}
+          onToggleFullscreen={() => setIsFullscreenReading(!isFullscreenReading)}
+        />
+      )}
 
-      <div className="flex items-center gap-3 border-b border-border px-4 py-2">
-        <button onClick={() => setIsLayoutOpen(true)} className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-foreground hover:bg-blue-500/20">保留版式 · BabelDOC</button>
-        <span className="text-xs text-muted-foreground">生成原版布局的译文 / 双语 PDF</span>
-      </div>
+      {/* 全屏阅读模式退出按钮 */}
+      {isFullscreenReading && (
+        <button
+          onClick={() => setIsFullscreenReading(false)}
+          className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-xl bg-card/95 backdrop-blur-md border border-border px-4 py-2 text-sm font-medium text-foreground shadow-xl hover:bg-accent transition-all"
+          title="退出全屏阅读 (ESC 或 F11)"
+        >
+          <X className="h-4 w-4" />
+          <span>退出全屏</span>
+        </button>
+      )}
+
+      {!isFullscreenReading && (
+        <div className="flex items-center gap-3 border-b border-border px-4 py-2">
+          <button onClick={() => setIsLayoutOpen(true)} className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-foreground hover:bg-blue-500/20">保留版式 · BabelDOC</button>
+          <span className="text-xs text-muted-foreground">生成原版布局的译文 / 双语 PDF</span>
+        </div>
+      )}
       <LayoutPreserveModal isOpen={isLayoutOpen} onClose={() => setIsLayoutOpen(false)} document={activeDoc} />
       {/* Main Dual Pane Viewer */}
       <main className="flex-1 overflow-hidden">
@@ -636,6 +680,7 @@ export default function App() {
           isGeneratingSummary={isGeneratingSummary}
           isSearchOpen={isSearchOpen}
           onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
+          isFullscreenReading={isFullscreenReading}
         />
       </main>
 
