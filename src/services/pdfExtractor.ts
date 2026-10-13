@@ -187,4 +187,3 @@ function detectSegmentType(text: string): Segment['type'] {
   }
   return 'paragraph';
 }
-

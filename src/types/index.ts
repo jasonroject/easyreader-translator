@@ -1,4 +1,4 @@
-export type SupportedLanguage = 
+export type SupportedLanguage =
   | 'auto'
   | 'zh-CN' // 简体中文
   | 'zh-TW' // 繁体中文
@@ -19,7 +19,7 @@ export interface LanguageOption {
   nativeName: string;
 }
 
-export type DocumentCategory = 
+export type DocumentCategory =
   | '学术科研'
   | '商务法务'
   | '技术手册'
