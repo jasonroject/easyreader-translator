@@ -23,7 +23,7 @@
 1. 安装 [Node.js](https://nodejs.org/) **22.19 或以上**（推荐 24）。
 2. 下载仓库 ZIP 并完整解压，或运行 `git clone https://github.com/jasonroject/easyreader-translator.git`。
 3. Windows 双击 `start.cmd` 或 `一键启动.cmd`。macOS / Linux 在项目目录运行 `sh start.sh`；macOS 也可 `chmod +x start.command` 后双击。
-4. 首次启动自动执行 `npm ci`，构建页面并打开浏览器。默认地址为 `http://127.0.0.1:3000`。运行期间保留启动窗口。
+4. 首次启动自动执行 `npm ci`，构建页面并打开浏览器。默认地址为 `http://127.0.0.1:3000`；被占用时自动寻找可用端口，并在 `.local-port` 中记住选择。运行期间保留启动窗口。
 
 也可在终端运行：
 
@@ -68,7 +68,7 @@ Windows 也可双击 `准备版式资源.cmd`。该步骤自动创建 Python 3.1
 
 ## 常见问题
 
-**双击后打不开：** 安装 Node 后重新打开终端；保留错误窗口。浏览器未弹出时手动访问启动日志中的地址。端口被占用可在 `.env.local` 改为 `PORT=3001`。
+**双击后打不开：** 安装 Node 后重新打开终端；保留错误窗口。浏览器未弹出时手动访问启动日志中的地址。端口被占用会自动切换，实际地址以启动日志为准；也可在 `.env.local` 设置首选端口。
 
 **Scanned PDF detected：** 此版本对没有文字层的图片页自动 OCR，并对已有隐藏文字层使用扫描页兼容模式。识别不到文字会给出中文提示。模糊、手写、竖排或非中英文扫描件建议先使用专门 OCR 工具；截图里的扫描错误与缺少 Times New Roman 无关。
 

@@ -4,12 +4,14 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { supportedNode } from './scripts/runtime.mjs';
+import { selectPort } from './scripts/local-port.mjs';
 process.chdir(path.dirname(fileURLToPath(import.meta.url)));
 process.env.PATH = path.dirname(process.execPath) + path.delimiter + (process.env.PATH || '');
 if (existsSync('.env.local')) process.loadEnvFile('.env.local');
 if (existsSync('.env')) process.loadEnvFile('.env');
-const port = process.env.PORT || '3000';
-const url = `http://127.0.0.1:${port}`;
+const savedPort = existsSync('.local-port') ? readFileSync('.local-port', 'utf8').trim() : '';
+let port = process.env.PORT || (/^\d+$/.test(savedPort) && +savedPort > 0 && +savedPort <= 65535 ? savedPort : '3000');
+let url = `http://127.0.0.1:${port}`;
 function openBrowser() {
   if (process.env.BROWSER === 'none') return;
   const command = process.platform === 'win32' ? 'powershell.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
@@ -28,9 +30,12 @@ function npm(...args) {
 try {
   if (!supportedNode(process.versions.node)) throw new Error('请安装 Node.js 22.19 或更新版本。');
   if (!/^\d+$/.test(port) || +port < 1 || +port > 65535) throw new Error('PORT 必须是 1–65535 的整数。');
-  const existing = await health();
-  if (existing?.appId === 'easyreader-local') { openBrowser(); process.exit(0); }
-  if (existing) throw new Error(`端口 ${port} 已被其他应用使用。请在 .env.local 设置其他 PORT。`);
+  const selected = await selectPort(+port);
+  if (selected.port !== +port) console.log(`端口 ${port} 已被占用，自动改用 ${selected.port}。`);
+  port = String(selected.port);
+  url = `http://127.0.0.1:${port}`;
+  writeFileSync('.local-port', port);
+  if (selected.running) { console.log(`应用已经运行：${url}`); openBrowser(); process.exit(0); }
   const hash = createHash('sha256').update(readFileSync('package-lock.json')).update(process.execPath).update(process.versions.node).update(process.platform).update(process.arch).digest('hex');
   if (!existsSync('node_modules/tsx') || !existsSync('.deps-ready') || readFileSync('.deps-ready', 'utf8') !== hash) {
     console.log('首次启动：正在安装依赖……'); npm('ci'); writeFileSync('.deps-ready', hash);

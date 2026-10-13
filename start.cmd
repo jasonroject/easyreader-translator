@@ -16,7 +16,7 @@ echo Starting EasyReader. Please keep this window open.
 if errorlevel 1 (
   echo.
   echo Startup failed. See the error above.
-  echo Local address: http://127.0.0.1:3000
+  echo Use the address printed by the launcher above.
   pause
   exit /b 1
 )

@@ -6,6 +6,7 @@ dist/
 .env.*
 !.env.example
 .deps-ready
+.local-port
 .layout-ready
 .server*
 .scan-test-job
