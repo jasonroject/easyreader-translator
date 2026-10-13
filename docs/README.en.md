@@ -14,6 +14,8 @@ The second toolbar's paste translator opens a separate two-column text translato
 
 Use the source annotation button above the reader to add pinned notes or draw on original PDF/text pages. Includes color, pen width, stroke eraser and per-page undo/redo. Notes and strokes are automatically saved in browser IndexedDB and restored after reload. Annotations currently stay in the local reader; they are not embedded in PDF/HTML exports or included in temporary sync.
 
+Completed BabelDOC results also support notes and drawing from the continuous preview toolbar. Annotations are saved separately per translation job, bilingual/translated view and page, and stay aligned when zooming. Edit notes and undo/redo below each page. Regenerating creates a new job; existing annotations are not transferred or embedded in downloaded PDFs.
+
 Copy `.env.example` to `.env.local` for port/proxy settings. Gemini requires both an API key and a model available to your account. Bing/Google web channels require no key but are unofficial and may be rate-limited or unavailable.
 
 ## Privacy and portability

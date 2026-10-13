@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { LayoutPageAnnotations, LayoutAnnotationOptions, AnnotationTool } from './LayoutPageAnnotations';
 
-function PdfPage({ pdf, number, root, initialRatio }: { pdf: PDFDocumentProxy; number: number; root: HTMLDivElement; initialRatio: number }) {
+function PdfPage({ pdf, number, root, initialRatio, url, annotations }: { pdf: PDFDocumentProxy; number: number; root: HTMLDivElement; initialRatio: number; url: string; annotations: LayoutAnnotationOptions }) {
   const frame = useRef<HTMLDivElement>(null), canvas = useRef<HTMLCanvasElement>(null);
   const [nearby, setNearby] = useState(false), [ready, setReady] = useState(false);
   const [ratio, setRatio] = useState(initialRatio), [error, setError] = useState('');
@@ -32,10 +33,12 @@ function PdfPage({ pdf, number, root, initialRatio }: { pdf: PDFDocumentProxy; n
   }, [pdf, number, nearby]);
   return <section aria-label={`PDF 第 ${number} 页`} data-pdf-page={number} className="mb-6">
     <p className="mb-2 text-center text-xs text-muted-foreground">第 {number} 页</p>
-    <div ref={frame} style={{ aspectRatio: ratio }} className="relative bg-white shadow-lg">
+    <div ref={frame}>
+      <LayoutPageAnnotations storageKey={`layout:${url}:page:${number}`} page={number} ratio={ratio} ready={nearby && ready} options={annotations}>
       {nearby && <canvas ref={canvas} aria-label={`保留版式 PDF 第 ${number} 页`} className="block h-full w-full" />}
       {nearby && !ready && !error && <p className="absolute left-4 top-4 text-sm text-gray-600">正在加载第 {number} 页…</p>}
       {error && <p role="alert" className="absolute left-4 top-4 text-sm text-red-600">第 {number} 页预览失败：{error}。可以下载 PDF 查看。</p>}
+      </LayoutPageAnnotations>
     </div>
   </section>;
 }
@@ -45,6 +48,9 @@ export function ContinuousPdfPreview({ url }: { url: string }) {
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState(100), [jump, setJump] = useState('1');
   const [ratio, setRatio] = useState(0.707), [error, setError] = useState('');
+  const [editing, setEditing] = useState(false), [tool, setTool] = useState<AnnotationTool>('read');
+  const [color, setColor] = useState('#ef4444'), [width, setWidth] = useState(3);
+  const annotations: LayoutAnnotationOptions = { editing, tool, color, width, onRead: () => setTool('read'), onEdit: () => { setEditing(true); setTool('read'); } };
   useEffect(() => {
     let stopped = false;
     const task = window.pdfjsLib.getDocument({ url });
@@ -74,12 +80,19 @@ export function ContinuousPdfPreview({ url }: { url: string }) {
       <button disabled={zoom <= 50} onClick={() => setZoom(zoom - 25)} className="disabled:opacity-40">缩小</button>
       <span>{zoom}%</span>
       <button disabled={zoom >= 200} onClick={() => setZoom(zoom + 25)} className="disabled:opacity-40">放大</button>
+      <button aria-pressed={editing} disabled={!pdf} className="rounded bg-blue-600 px-3 py-1 text-white disabled:opacity-40" onClick={() => { setEditing(!editing); setTool('read'); }}>{editing ? '收起批注工具' : '备注 / 画笔'}</button>
     </div>
+    {editing && <div className="flex flex-wrap items-center gap-2 border-b border-border p-2 text-sm">
+      {([['read', '阅读'], ['note', '添加备注'], ['pen', '画笔'], ['erase', '橡皮擦']] as const).map(([value, label]) => <button key={value} aria-pressed={tool === value} className={`rounded border border-border px-3 py-1 ${tool === value ? 'bg-blue-600 text-white' : 'bg-card'}`} onClick={() => setTool(value)}>{label}</button>)}
+      <label>颜色 <input aria-label="版式画笔颜色" type="color" value={color} onChange={event => setColor(event.target.value)} className="h-7 w-8 align-middle" /></label>
+      <label>粗细 <select aria-label="版式画笔粗细" className="rounded border border-border bg-card px-2 py-1" value={width} onChange={event => setWidth(Number(event.target.value))}><option value={2}>细</option><option value={3}>中</option><option value={6}>粗</option></select></label>
+      <span className="text-xs text-muted-foreground">点击页面添加备注，拖动画线；每页下方编辑备注和撤销。按任务、视图、页码自动保存到本机，不写入下载的 PDF。</span>
+    </div>}
     <div ref={setRoot} role="region" aria-label="连续 PDF 阅读区" tabIndex={0} className="min-h-0 flex-1 overflow-auto bg-muted p-4">
       {!pdf && !error && <p role="status">正在加载 PDF…</p>}
       {error && <p role="alert">预览失败：{error}。可以下载 PDF 查看。</p>}
       <div style={{ width: `${zoom}%` }} className="mx-auto">
-        {pdf && root && Array.from({ length: pdf.numPages }, (_, index) => <PdfPage key={`${url}-${index}`} pdf={pdf} number={index + 1} root={root} initialRatio={ratio} />)}
+        {pdf && root && Array.from({ length: pdf.numPages }, (_, index) => <PdfPage key={`${url}-${index}`} pdf={pdf} number={index + 1} root={root} initialRatio={ratio} url={url} annotations={annotations} />)}
       </div>
     </div>
   </div>;
