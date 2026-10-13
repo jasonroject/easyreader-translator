@@ -10,6 +10,8 @@ For PDF layout translation, install [uv](https://docs.astral.sh/uv/getting-start
 
 Import a PDF, then use the bottom-right translation button. For downloadable translated/bilingual PDFs, open the layout module. Inspect complex layouts and OCR output for errors.
 
+Use the source annotation button above the reader to add pinned notes or draw on original PDF/text pages. Includes color, pen width, stroke eraser and per-page undo/redo. Notes and strokes are automatically saved in browser IndexedDB and restored after reload. Annotations currently stay in the local reader; they are not embedded in PDF/HTML exports or included in temporary sync.
+
 Copy `.env.example` to `.env.local` for port/proxy settings. Gemini requires both an API key and a model available to your account. Bing/Google web channels require no key but are unofficial and may be rate-limited or unavailable.
 
 ## Privacy and portability

@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { GeminiStarIcon, GeminiBrandBadge, ColoredFeatureIcon } from './GeminiIcon';
 import { PdfVisualMirrorViewer } from './PdfVisualMirrorViewer';
+import { AnnotationEditor } from './AnnotationEditor';
 
 interface DualPaneViewerProps {
   document: TranslationDocument;
@@ -105,6 +106,7 @@ export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
   }, []);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [annotationOpen, setAnnotationOpen] = useState(false);
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [hoveredTerm, setHoveredTerm] = useState<{
@@ -962,6 +964,11 @@ export const DualPaneViewer: React.FC<DualPaneViewerProps> = ({
         </div>
       </div>
 
+      <div className="flex items-center gap-3 border-b border-border px-4 py-2">
+        <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" onClick={() => setAnnotationOpen(true)}>✎ 原文批注 · 备注 / 画笔</button>
+        <span className="text-xs text-muted-foreground">按页保存，随时继续编辑</span>
+      </div>
+      {annotationOpen && <AnnotationEditor key={document.id} doc={document} onClose={() => setAnnotationOpen(false)} />}
       {/* Main Content Area based on viewerMode */}
       <div className="flex-1 overflow-hidden">
       {viewerMode === 'pdf_visual_mirror' && (
