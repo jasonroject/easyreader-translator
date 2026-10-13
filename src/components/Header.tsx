@@ -31,6 +31,7 @@ import {
   PresentationStyle,
 } from '../types';
 import { exportService } from '../services/exportService';
+import { PasteTranslator } from './PasteTranslator';
 import { GeminiBrandBadge, ColoredFeatureIcon, GeminiStarIcon } from './GeminiIcon';
 
 interface HeaderProps {
@@ -106,6 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
   onUploadFile,
 }: HeaderProps) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [pasteTranslatorOpen, setPasteTranslatorOpen] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -504,17 +506,17 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Gemini Colored Tool Chips (有底色的专业功能图标芯片) */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          {/* Direct PDF Import Chip */}
-          {onUploadFile && (
+          {/* Plain text translation, replacing the duplicate PDF import chip. */}
+          {(
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setPasteTranslatorOpen(true)}
               className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 transition-all shrink-0 active:scale-98 cursor-pointer shadow-2xs"
-              title="直接打开电脑上的本地 PDF 文件进行翻译（免OCR，直接读取文字排版）"
+              title="输入或粘贴文字进行双栏翻译"
             >
               <ColoredFeatureIcon color="blue" size="sm">
-                <FileUp className="h-3 w-3 text-cyan-400" />
+                <FileText className="h-3 w-3 text-cyan-400" />
               </ColoredFeatureIcon>
-              <span>直接导入PDF (免OCR)</span>
+              <span>粘贴翻译</span>
             </button>
           )}
 
@@ -629,6 +631,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
+      <PasteTranslator open={pasteTranslatorOpen} onClose={() => setPasteTranslatorOpen(false)} />
     </header>
   );
 };
