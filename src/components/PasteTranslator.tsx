@@ -67,7 +67,12 @@ export function PasteTranslator({ open, onClose }: { open: boolean; onClose: () 
       <div className="overflow-auto p-3 sm:p-5">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 pb-3">
           <select aria-label="原文语言" className={`${button} min-w-0 w-full`} value={source} onChange={e => { invalidate(); setSource(e.target.value as SupportedLanguage); }}>{languages.map(language => <option key={language.code} value={language.code}>{language.name}</option>)}</select>
-          <button aria-label="交换语言与文本" title={!reverseSource ? '请先翻译以识别原文语言' : '将译文作为原文，交换语言'} className={button} disabled={!result || !reverseSource || busy} onClick={() => { const translated = result; const newTarget = reverseSource!; invalidate(); setText(translated); setSource(target); setTarget(newTarget); }}><ArrowLeftRight className="h-4 w-4" /></button>
+          <button aria-label="交换语言与文本" title="交换语言；已有译文时将译文放入输入框" className={button} onClick={() => {
+            const nextTarget = reverseSource || (target.startsWith('zh') ? 'en' : 'zh-CN');
+            const nextText = result || text;
+            invalidate(); setText(nextText); setSource(target); setTarget(nextTarget);
+            if (!reverseSource) setNotice(`原文尚未识别，交换后译为${languages.find(language => language.code === nextTarget)?.name}，可在右侧修改。`);
+          }}><ArrowLeftRight className="h-4 w-4" /></button>
           <select aria-label="译文语言" className={`${button} min-w-0 w-full`} value={target} onChange={e => { invalidate(); setTarget(e.target.value as SupportedLanguage); }}>{languages.filter(language => language.code !== 'auto').map(language => <option key={language.code} value={language.code}>{language.name}</option>)}</select>
         </div>
         <div className="grid gap-3 md:grid-cols-2">

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { TranslationDocument } from '../types';
 import { loadPdf } from '../services/pdfFiles';
+import { ContinuousPdfPreview as PdfPreview } from './ContinuousPdfPreview';
 
 type Job = { id: string; state: 'running' | 'done' | 'error' | 'cancelled'; stage: string; progress: number; error?: string; current?: number; total?: number; startedAt?: number; updatedAt?: number };
 const stageLabels: Record<string, string> = {
@@ -10,48 +11,6 @@ const stageLabels: Record<string, string> = {
   'Parse Formulas and Styles': '正在识别公式与字体', 'Translate Paragraphs': '正在翻译段落',
   'Typesetting': '正在排版', 'Add Fonts': '正在嵌入字体', 'Generate drawing instructions': '正在生成 PDF',
 };
-function PdfPreview({ url }: { url: string }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const [page, setPage] = useState(1), [count, setCount] = useState(1);
-  const [zoom, setZoom] = useState(100);
-  const [error, setError] = useState(''), [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let cancelled = false, render: any;
-    const task = window.pdfjsLib.getDocument({ url });
-    setLoading(true); setError('');
-    (async () => {
-      try {
-        const pdf = await task.promise;
-        if (cancelled) return;
-        setCount(pdf.numPages);
-        const pdfPage = await pdf.getPage(Math.min(page, pdf.numPages));
-        if (cancelled || !canvas.current) return;
-        const view = pdfPage.getViewport({ scale: 1.3 });
-        canvas.current.width = view.width; canvas.current.height = view.height;
-        render = pdfPage.render({ canvas: canvas.current, canvasContext: canvas.current.getContext('2d'), viewport: view });
-        await render.promise;
-      } catch (e: any) { if (!cancelled) setError(e.message); }
-      finally { if (!cancelled) setLoading(false); }
-    })();
-    return () => { cancelled = true; render?.cancel(); void task.destroy(); };
-  }, [url, page]);
-  return <div className="flex min-h-0 flex-1 flex-col">
-    <div className="flex items-center justify-center gap-4 p-2 text-sm">
-      <button disabled={page === 1} onClick={() => setPage(page - 1)} className="disabled:opacity-40">上一页</button>
-      <span>{page} / {count}</span>
-      <button disabled={page >= count} onClick={() => setPage(page + 1)} className="disabled:opacity-40">下一页</button>
-      <button disabled={zoom <= 50} onClick={() => setZoom(zoom - 25)} className="disabled:opacity-40">缩小</button>
-      <span>{zoom}%</span>
-      <button disabled={zoom >= 200} onClick={() => setZoom(zoom + 25)} className="disabled:opacity-40">放大</button>
-    </div>
-    <div className="overflow-auto flex-1 bg-muted p-4">
-      {loading && <p role="status">正在加载 PDF…</p>}
-      {error && <p role="alert">预览失败：{error}。可以下载 PDF 查看。</p>}
-      <canvas ref={canvas} style={{ width: `${zoom}%`, maxWidth: 'none', height: 'auto' }} className="mx-auto bg-white shadow-lg" aria-label="保留版式 PDF 预览" />
-    </div>
-  </div>;
-}
-
 export function LayoutPreserveModal({ isOpen, onClose, document: doc }: { isOpen: boolean; onClose: () => void; document: TranslationDocument }) {
   const [file, setFile] = useState<Blob | null>(null), [name, setName] = useState('');
   const [engine, setEngine] = useState('bing'), [target, setTarget] = useState(doc.targetLang);
