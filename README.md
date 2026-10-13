@@ -90,6 +90,8 @@ Windows 也可双击 `准备版式资源.cmd`。该步骤自动创建 Python 3.1
 
 **资源下载失败：** 检查网络 / 代理后重试 `npm run setup:layout`。程序保留已完成的缓存，重试不会强制重下全部文件。
 
+**保留版式长时间等待 / Google 429：** 长文档逐段翻译需要数分钟，界面显示当前处理阶段、段落进度和已用时间。翻译服务限流或请求失败时会立即停止任务并显示原因，不再等整份文档处理结束。Google 返回 HTTP 429 时可选择 Bing 重新生成；成功段落的缓存会按引擎复用。
+
 **如何更新：** 备份自己的数据，更新源码后重新启动；依赖锁定文件变化会触发安装。保留版式任务会检查资源准备标记。重新运行 setup 命令可检查缓存完整性。
 
 ## 开发与验证
@@ -103,6 +105,8 @@ npm run dev
 ```
 
 安装版式依赖后运行 `.babeldoc-venv/Scripts/python.exe tests/test_pdf_preflight.py`（Windows），或 `.babeldoc-venv/bin/python tests/test_pdf_preflight.py`（macOS/Linux）。测试夹具均为项目自制文本和图形，不含用户 PDF。
+
+执行 `npm run setup:layout` 准备模型后，还可使用同一个 Python 运行 `tests/test_layout_failure.py`，验证真实 BabelDOC 工作进程遇到接口失败时立即上报；该测试仅请求本地模拟接口。
 
 ## 许可与致谢
 

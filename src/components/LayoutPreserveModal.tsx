@@ -2,7 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TranslationDocument } from '../types';
 import { loadPdf } from '../services/pdfFiles';
 
-type Job = { id: string; state: 'running' | 'done' | 'error' | 'cancelled'; stage: string; progress: number; error?: string };
+type Job = { id: string; state: 'running' | 'done' | 'error' | 'cancelled'; stage: string; progress: number; error?: string; current?: number; total?: number; startedAt?: number; updatedAt?: number };
+const stageLabels: Record<string, string> = {
+  'Parse PDF and Create Intermediate Representation': '正在解析 PDF',
+  'Detect Scanned File': '正在检查扫描页', 'Parse Page Layout': '正在识别页面布局',
+  'Parse Table': '正在识别表格', 'Parse Paragraphs': '正在识别段落',
+  'Parse Formulas and Styles': '正在识别公式与字体', 'Translate Paragraphs': '正在翻译段落',
+  'Typesetting': '正在排版', 'Add Fonts': '正在嵌入字体', 'Generate drawing instructions': '正在生成 PDF',
+};
 function PdfPreview({ url }: { url: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [page, setPage] = useState(1), [count, setCount] = useState(1);
@@ -122,7 +129,11 @@ export function LayoutPreserveModal({ isOpen, onClose, document: doc }: { isOpen
       {job?.state === 'running' && <button className={button} onClick={cancel}>取消任务</button>}
     </div>
     {(error || job?.error) && <p role="alert" className="p-3 text-sm text-red-500 whitespace-pre-wrap">{error || job?.error}</p>}
-    {job?.state === 'running' && <div className="p-4" role="status"><p className="text-sm mb-2">{job.stage} · {Math.round(job.progress)}%</p><progress className="w-full" max={100} value={job.progress} /></div>}
+    {job?.state === 'running' && <div className="p-4" role="status">
+      <p className="text-sm mb-2">{stageLabels[job.stage] || job.stage} · {Math.round(job.progress)}%{job.total != null && job.total > 0 ? ` · ${job.current ?? 0} / ${job.total}` : ''}{job.startedAt ? ` · 已用时 ${Math.floor((Date.now() - job.startedAt) / 60000)} 分 ${Math.floor((Date.now() - job.startedAt) / 1000) % 60} 秒` : ''}</p>
+      <progress className="w-full" max={100} value={job.progress} />
+      <p className="mt-2 text-xs text-muted-foreground">长文档按段落依次翻译，可能需要数分钟。可以返回阅读，任务会在后台继续。网络或限流错误会停止任务并显示原因。</p>
+    </div>}
     {job?.state === 'done' ? <>
       <div className="flex flex-wrap gap-3 p-3 border-b border-border">
         <button aria-pressed={view === 'dual'} className={button} onClick={() => setView('dual')}>双语对照</button>

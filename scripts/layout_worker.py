@@ -35,9 +35,13 @@ async def main():
             raise NotImplementedError
 
         def do_translate(self, text, rate_limit_params=None):
+            # BabelDOC catches paragraph exceptions and otherwise continues the
+            # entire document. Open the circuit after the first provider failure.
+            if self.errors:
+                raise RuntimeError(self.errors[0])
             try:
                 # Loopback must not go through the user's external proxy.
-                with httpx.Client(trust_env=False, timeout=180) as client:
+                with httpx.Client(trust_env=False, timeout=60) as client:
                     response = client.post(config['api_url'], json={
                         'segments': [{'id': 'paragraph', 'text': text}],
                         'sourceLang': config['source'], 'targetLang': config['target'],
@@ -46,9 +50,16 @@ async def main():
                     data = response.json()
                     if not response.is_success or not data.get('success'):
                         raise RuntimeError(data.get('error', '翻译接口请求失败'))
-                    return data['translations'][0]['translated']
+                    translated = data['translations'][0]['translated']
+                    if not isinstance(translated, str) or not translated.strip():
+                        raise RuntimeError('翻译接口没有返回有效译文')
+                    return translated
             except Exception as exc:
-                self.errors.append(str(exc))
+                message = f"{self.model.title()} 翻译中断：{exc}。请检查网络，或切换翻译引擎后重新生成；已成功翻译的段落缓存会复用。"
+                self.errors.append(message)
+                # Notify the parent immediately so it can stop this worker,
+                # instead of leaving the UI waiting until the final paragraph.
+                emit(error=message)
                 raise
 
     translator = WebTranslator()
@@ -83,7 +94,7 @@ async def main():
             emit(stage='已完成', progress=100, done=True)
             break
         else:
-            emit(stage=event.get('stage', '正在处理'), progress=event.get('overall_progress', 0))
+            emit(stage=event.get('stage', '正在处理'), progress=event.get('overall_progress', 0), current=event.get('stage_current'), total=event.get('stage_total'))
     if not completed:
         raise RuntimeError('版式任务结束，但没有生成文件')
 

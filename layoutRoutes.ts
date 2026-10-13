@@ -8,7 +8,7 @@ import { networkProxy } from './network';
 
 const root = path.resolve(import.meta.dirname, '.layout-jobs');
 const python = pythonPath(import.meta.dirname);
-type Job = { id: string; state: 'running' | 'done' | 'error' | 'cancelled'; stage: string; progress: number; error?: string };
+type Job = { id: string; state: 'running' | 'done' | 'error' | 'cancelled'; stage: string; progress: number; error?: string; current?: number; total?: number; startedAt?: number; updatedAt?: number };
 const jobs = new Map<string, Job>();
 const processes = new Map<string, ChildProcess>();
 function stopChild(child?: ChildProcess) {
@@ -30,9 +30,9 @@ layoutRoutes.post('/jobs', express.raw({ type: 'application/pdf', limit: '50mb' 
   mkdirSync(dir, { recursive: true });
   writeFileSync(path.join(dir, 'source.pdf'), req.body);
   writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ engine, source, target, api_url: `http://127.0.0.1:${process.env.PORT || 3000}/api/translate` }));
-  const job: Job = { id, state: 'running', stage: '正在准备保留版式环境', progress: 0 };
+  const job: Job = { id, state: 'running', stage: '正在准备保留版式环境', progress: 0, startedAt: Date.now() };
   jobs.set(id, job);
-  const save = () => writeFileSync(path.join(dir, 'status.json'), JSON.stringify(job));
+  const save = () => { job.updatedAt = Date.now(); writeFileSync(path.join(dir, 'status.json'), JSON.stringify(job)); };
   const fail = (message: string) => { if (job.state === 'running') { job.state = 'error'; job.error = message; save(); } };
   const env = { ...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1', ...(networkProxy ? { HTTPS_PROXY: networkProxy, HTTP_PROXY: networkProxy } : {}) };
   const run = () => {
@@ -49,8 +49,13 @@ layoutRoutes.post('/jobs', express.raw({ type: 'application/pdf', limit: '50mb' 
         try {
           const event = JSON.parse(line);
           if (job.state !== 'running') continue;
-          if (event.error) fail(event.error);
-          else { job.stage = event.stage || job.stage; job.progress = Math.max(job.progress, Math.min(99, Number(event.progress) || 0)); save(); }
+          if (event.error) { fail(event.error); stopChild(child); }
+          else {
+            job.stage = event.stage || job.stage;
+            job.current = typeof event.current === 'number' ? event.current : undefined;
+            job.total = typeof event.total === 'number' ? event.total : undefined;
+            job.progress = Math.max(job.progress, Math.min(99, Number(event.progress) || 0)); save();
+          }
         } catch { /* Library diagnostics are not progress events. */ }
       }
     });
@@ -71,9 +76,10 @@ layoutRoutes.post('/jobs', express.raw({ type: 'application/pdf', limit: '50mb' 
   else {
     const setup = spawn(process.execPath, ['scripts/setup-layout.mjs'], { cwd: import.meta.dirname, env, windowsHide: true });
     processes.set(id, setup);
+    const setupTimer = setTimeout(() => { fail('环境准备超过 15 分钟，请检查网络后运行“准备版式资源.cmd”，完成后重试。'); stopChild(setup); }, 15 * 60 * 1000);
     setup.stdout.resume(); setup.stderr.resume();
     setup.on('error', error => fail(error.message));
-    setup.on('close', code => { processes.delete(id); if (code === 0) run(); else fail('环境安装失败，请安装 uv 后重试。'); });
+    setup.on('close', code => { clearTimeout(setupTimer); processes.delete(id); if (code === 0) run(); else fail('环境安装失败，请运行“准备版式资源.cmd”查看具体错误，并确认 uv 已安装、网络可用。'); });
   }
   res.status(202).json(job);
 });
